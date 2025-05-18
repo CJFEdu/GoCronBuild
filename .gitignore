@@ -1,6 +1,9 @@
 # Ignore the actual configuration file but keep the example
 config.sh
 
+# Ignore the doas.txt file
+doas.txt
+
 # Ignore log files
 *.log
 
