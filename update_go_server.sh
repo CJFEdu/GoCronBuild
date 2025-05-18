@@ -125,7 +125,7 @@ fi
 log_message "Attempting to pull latest changes from Git repository..."
 git_pull_output=""
 if [ -n "${BUILD_USER}" ]; then
-    git_pull_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
+    git_pull_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
 else
     git_pull_output=$(${GIT_CMD} pull 2>&1)
 fi
@@ -197,18 +197,18 @@ if [ -n "${BUILD_USER}" ]; then
     
     log_message "Ensuring Go cache directories exist for ${BUILD_USER} at ${GOCACHE_DIR} and ${GOMODCACHE_DIR}"
     # Create cache dirs as BUILD_USER. Output/errors from mkdir will go to the main log.
-    mkdir_gocache_output=$(${DOAS_CMD} -u "${BUILD_USER}" mkdir -p "${GOCACHE_DIR}" 2>&1)
+    mkdir_gocache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOCACHE_DIR}" 2>&1)
     if [ $? -ne 0 ]; then
         log_message "WARNING: Could not create GOCACHE_DIR (${GOCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gocache_output}"
         # Depending on Go version, build might still proceed if cache is not critical or uses another fallback.
     fi
-    mkdir_gomodcache_output=$(${DOAS_CMD} -u "${BUILD_USER}" mkdir -p "${GOMODCACHE_DIR}" 2>&1)
+    mkdir_gomodcache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOMODCACHE_DIR}" 2>&1)
     if [ $? -ne 0 ]; then
         log_message "WARNING: Could not create GOMODCACHE_DIR (${GOMODCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gomodcache_output}"
     fi
 
     log_message "Executing go build as ${BUILD_USER} with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
-    build_output=$(${DOAS_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
 else
     # For root or cron user without specific BUILD_USER, Go will use their default cache locations
     # or system-wide caches if configured.
@@ -232,7 +232,7 @@ if [ -f "${GO_EXECUTABLE_DEST}" ]; then
     log_message "Backing up current executable ${GO_EXECUTABLE_DEST} to ${CURRENT_BACKUP_FILE}..."
     mv_backup_output=""
     # Moving files in system directories typically requires elevated privileges
-    mv_backup_output=$(${DOAS_CMD} mv "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}" 2>&1)
+    mv_backup_output=$(${DOAS_CMD} -n mv "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}" 2>&1)
     mv_backup_status=$?
 
     if [ ${mv_backup_status} -ne 0 ]; then
@@ -251,7 +251,7 @@ fi
 log_message "Moving new executable ${TMP_BUILD_FILE} to ${GO_EXECUTABLE_DEST}..."
 mv_new_output=""
 # Moving new executable also typically requires elevated privileges
-mv_new_output=$(${DOAS_CMD} mv "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
+mv_new_output=$(${DOAS_CMD} -n mv "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
 mv_new_status=$?
 
 if [ ${mv_new_status} -ne 0 ]; then
@@ -260,7 +260,7 @@ if [ ${mv_new_status} -ne 0 ]; then
     log_message "WARNING: New build is at ${TMP_BUILD_FILE}."
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Attempting to restore backup ${CURRENT_BACKUP_FILE} to ${GO_EXECUTABLE_DEST} due to move failure..."
-        restore_output=$(${DOAS_CMD} mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
+        restore_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         if [ $? -eq 0 ]; then
             log_message "Successfully restored backup to ${GO_EXECUTABLE_DEST}."
         else
@@ -276,7 +276,7 @@ log_message "Successfully moved new executable to ${GO_EXECUTABLE_DEST}"
 
 # Restart the rc-service
 log_message "Attempting to restart rc-service ${RC_SERVICE_NAME}..."
-restart_output=$(${DOAS_CMD} ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1)
+restart_output=$(${DOAS_CMD} -n ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1)
 restart_status=$?
 
 if [ ${restart_status} -ne 0 ]; then
@@ -285,12 +285,12 @@ if [ ${restart_status} -ne 0 ]; then
     log_message "Attempting to roll back to previous executable..."
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Moving backup ${CURRENT_BACKUP_FILE} back to ${GO_EXECUTABLE_DEST}."
-        rollback_output=$(${DOAS_CMD} mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
+        rollback_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         if [ $? -eq 0 ]; then
             log_message "Rollback successful. Service ${RC_SERVICE_NAME} may need to be started manually or with another restart attempt."
             # Optionally, try to restart the service again with the old executable
             log_message "Attempting to restart service with rolled-back executable..."
-            ${DOAS_CMD} ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>> "${LOG_FILE}"
+            ${DOAS_CMD} -n ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>> "${LOG_FILE}"
             log_message "Rollback restart attempt completed."
         else
             log_message "ERROR: Rollback failed. Could not move ${CURRENT_BACKUP_FILE} to ${GO_EXECUTABLE_DEST}."
@@ -307,7 +307,7 @@ else
     # If restart was successful, clean up the backup made during this run
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Deleting backup file from this run: ${CURRENT_BACKUP_FILE}"
-        delete_backup_output=$(${DOAS_CMD} rm -f "${CURRENT_BACKUP_FILE}" 2>&1)
+        delete_backup_output=$(${DOAS_CMD} -n rm -f "${CURRENT_BACKUP_FILE}" 2>&1)
         if [ $? -eq 0 ]; then
             log_message "Successfully deleted backup file ${CURRENT_BACKUP_FILE}."
         else
