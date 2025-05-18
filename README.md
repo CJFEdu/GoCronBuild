@@ -59,7 +59,7 @@ The script uses an external configuration file (`config.sh`) to store all enviro
    * `RC_SERVICE_NAME`: The name of your `rc-service` (e.g., `myapp-server`).
    * `LOG_DIR`: Directory where daily log files will be stored (e.g., `/var/log/go_project_updater`). The script will attempt to create this directory.
    * `LOG_BASE_NAME`: The base name for log files (e.g., `myapp_updater`).
-   * `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script (e.g., the cron user).
+   * `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script (e.g., the cron user). See the [Setting Up BUILD_USER](#setting-up-build_user) section for instructions on creating and configuring this user.
    * `GIT_CMD`, `GO_CMD`, `RC_SERVICE_CMD`, `DOAS_CMD`: Verify these absolute paths to the respective commands.
 
 The `config.sh` file is ignored by Git, so your local settings won't be overwritten when you pull updates from the repository.
@@ -88,7 +88,7 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
     cat doas.txt
     
     # Then add them to your doas.conf (requires root privileges)
-    sudo sh -c "cat doas.txt >> /etc/doas.conf"
+    doas sh -c "cat doas.txt >> /etc/doas.conf"
     
     # Verify the doas.conf syntax
     doas -C /etc/doas.conf
@@ -99,6 +99,64 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
     ./update_go_server.sh
     ```
     Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-MM-DD.log`) for detailed output.
+
+## Setting Up BUILD_USER
+
+If you want to use a dedicated user for building your Go application (recommended for security), follow these steps to create and configure the `BUILD_USER`:
+
+1. **Create the user**:
+   ```bash
+   # Create a new user without a home directory
+   doas adduser -D -H yourbuilduser
+   
+   # Or create a user with a home directory if needed
+   doas adduser -D yourbuilduser
+   ```
+
+2. **Set up the project directory with proper permissions**:
+   ```bash
+   # Switch to the build user
+   doas -u yourbuilduser sh
+   
+   # Create or clone the project directory
+   mkdir -p /path/to/project/parent
+   cd /path/to/project/parent
+   
+   # Clone your repository (if using Git)
+   git clone https://github.com/yourusername/yourrepo.git
+   
+   # Exit the build user shell
+   exit
+   ```
+
+3. **Set proper ownership and permissions**:
+   ```bash
+   # If the directory already exists and you need to change ownership
+   doas chown -R yourbuilduser:yourbuilduser /path/to/your/go/project
+   
+   # Make sure the directory is accessible to the cron user as well
+   doas chmod -R 750 /path/to/your/go/project
+   ```
+
+4. **Update your `config.sh`**:
+   ```bash
+   # Edit config.sh and set BUILD_USER to your new user
+   BUILD_USER="yourbuilduser"
+   ```
+
+5. **Generate doas permissions**:
+   ```bash
+   # Run the permissions generator to create entries for the BUILD_USER
+   ./generate_doas_permissions.sh
+   ```
+
+6. **Test the setup**:
+   ```bash
+   # Try running the update script to ensure permissions are correct
+   ./update_go_server.sh
+   ```
+
+Using a dedicated build user provides better security by isolating the build process from both the root user and the cron user. This follows the principle of least privilege, where each component has only the permissions it needs to function.
 
 ## Setting up as a Cron Job
 
