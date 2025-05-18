@@ -88,11 +88,63 @@ cd "${PROJECT_DIR}" || {
 }
 log_message "Successfully navigated to ${PROJECT_DIR}"
 
+# Function to handle Git dubious ownership errors
+handle_git_dubious_ownership() {
+    local git_output=$1
+    local repo_path=""
+    
+    # Extract the repository path from the error message
+    if [[ "${git_output}" == *"detected dubious ownership in repository at"* ]]; then
+        # Extract the path between single quotes
+        repo_path=$(echo "${git_output}" | grep -o "'[^']*'" | sed "s/'//g")
+        
+        if [ -n "${repo_path}" ]; then
+            log_message "Detected Git dubious ownership error for repository: ${repo_path}"
+            log_message "Automatically configuring Git to trust this directory"
+            
+            # Run the git config command to add the directory as safe
+            safe_dir_output=$(${GIT_CMD} config --global --add safe.directory "${repo_path}" 2>&1)
+            safe_dir_status=$?
+            
+            if [ ${safe_dir_status} -eq 0 ]; then
+                log_message "Successfully added ${repo_path} to Git safe.directory"
+                return 0
+            else
+                log_message "Failed to add ${repo_path} to Git safe.directory: ${safe_dir_output}"
+                return 1
+            fi
+        fi
+    fi
+    
+    # If we didn't find a dubious ownership error or couldn't extract the path
+    return 1
+}
+
 # Store current commit hash to check for changes later
-current_commit_before_pull=$(${GIT_CMD} rev-parse HEAD 2>> "${LOG_FILE}")
-if [ $? -ne 0 ]; then
-    log_message "WARNING: Could not get current commit hash before pull. Assuming changes are needed."
-    current_commit_before_pull="unknown_before_pull_error" # Set to a value that won't match after_pull
+current_commit_before_pull=$(${GIT_CMD} rev-parse HEAD 2>&1)
+rev_parse_status=$?
+if [ ${rev_parse_status} -ne 0 ]; then
+    # Check if this is a dubious ownership error
+    if [[ "${current_commit_before_pull}" == *"detected dubious ownership"* ]]; then
+        log_message "Git dubious ownership error detected during rev-parse"
+        if handle_git_dubious_ownership "${current_commit_before_pull}"; then
+            # Try again after fixing the ownership issue
+            log_message "Retrying rev-parse after fixing ownership issue"
+            current_commit_before_pull=$(${GIT_CMD} rev-parse HEAD 2>&1)
+            rev_parse_status=$?
+            
+            if [ ${rev_parse_status} -ne 0 ]; then
+                log_message "WARNING: Could not get current commit hash before pull even after fixing ownership. Assuming changes are needed."
+                current_commit_before_pull="unknown_before_pull_error" # Set to a value that won't match after_pull
+            fi
+        else
+            log_message "WARNING: Could not fix Git dubious ownership issue. Assuming changes are needed."
+            current_commit_before_pull="unknown_before_pull_error" # Set to a value that won't match after_pull
+        fi
+    else
+        log_message "WARNING: Could not get current commit hash before pull. Assuming changes are needed."
+        current_commit_before_pull="unknown_before_pull_error" # Set to a value that won't match after_pull
+    fi
 fi
 
 # Pull latest changes from the repository
@@ -103,7 +155,20 @@ git_pull_output=""
 attempt_direct_pull() {
     log_message "Attempting direct git pull without doas..."
     git_pull_output=$(${GIT_CMD} pull 2>&1)
-    return $?
+    pull_status=$?
+    
+    # Check for dubious ownership error
+    if [ ${pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"detected dubious ownership"* ]]; then
+        log_message "Git dubious ownership error detected during pull"
+        if handle_git_dubious_ownership "${git_pull_output}"; then
+            # Try again after fixing the ownership issue
+            log_message "Retrying pull after fixing ownership issue"
+            git_pull_output=$(${GIT_CMD} pull 2>&1)
+            pull_status=$?
+        fi
+    fi
+    
+    return ${pull_status}
 }
 
 if [ -n "${BUILD_USER}" ]; then
@@ -133,14 +198,43 @@ log_message "Git pull successful."
 log_message "Git output: ${git_pull_output}"
 
 # Check if there were any actual changes
-current_commit_after_pull=$(${GIT_CMD} rev-parse HEAD 2>> "${LOG_FILE}")
-if [ $? -ne 0 ]; then
-    log_message "WARNING: Could not get current commit hash after pull. Assuming changes were made and proceeding with rebuild."
-    # To force a rebuild in case of error, ensure it doesn't match 'before_pull' if 'before_pull' was also an error
-    if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
-      current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+current_commit_after_pull=$(${GIT_CMD} rev-parse HEAD 2>&1)
+rev_parse_after_status=$?
+if [ ${rev_parse_after_status} -ne 0 ]; then
+    # Check if this is a dubious ownership error
+    if [[ "${current_commit_after_pull}" == *"detected dubious ownership"* ]]; then
+        log_message "Git dubious ownership error detected during after-pull rev-parse"
+        if handle_git_dubious_ownership "${current_commit_after_pull}"; then
+            # Try again after fixing the ownership issue
+            log_message "Retrying after-pull rev-parse after fixing ownership issue"
+            current_commit_after_pull=$(${GIT_CMD} rev-parse HEAD 2>&1)
+            rev_parse_after_status=$?
+            
+            if [ ${rev_parse_after_status} -ne 0 ]; then
+                log_message "WARNING: Could not get current commit hash after pull even after fixing ownership. Assuming changes were made."
+                # To force a rebuild in case of error, ensure it doesn't match 'before_pull' if 'before_pull' was also an error
+                if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
+                  current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+                else
+                  current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
+                fi
+            fi
+        else
+            log_message "WARNING: Could not fix Git dubious ownership issue after pull. Assuming changes were made."
+            if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
+              current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+            else
+              current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
+            fi
+        fi
     else
-      current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
+        log_message "WARNING: Could not get current commit hash after pull. Assuming changes were made and proceeding with rebuild."
+        # To force a rebuild in case of error, ensure it doesn't match 'before_pull' if 'before_pull' was also an error
+        if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
+          current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+        else
+          current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
+        fi
     fi
 fi
 

@@ -99,7 +99,16 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
     fatal: detected dubious ownership in repository at '/path/to/repo'
     ```
     
-    This is a Git security feature. To resolve it, you can either:
+    This is a Git security feature. The script now automatically handles this error by:
+    
+    * Detecting the "dubious ownership" error message
+    * Extracting the repository path from the error
+    * Running `git config --global --add safe.directory /path/to/repo` automatically
+    * Retrying the Git operation that failed
+    
+    This automatic handling works for all Git operations in the script (rev-parse, pull, etc.).
+    
+    If you prefer to manually configure this, you can:
     
     * Configure Git to allow the specific directory:
       ```bash
