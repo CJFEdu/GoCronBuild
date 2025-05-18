@@ -115,7 +115,15 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
       git config --global safe.directory '*'
       ```
 
-6.  **Manual Execution (Testing)**:
+6.  **Public Repository Support**:
+    The script now includes fallback mechanisms for public repositories, allowing it to work even without doas permissions:
+    
+    * If a doas command fails with `doas: Authentication required`, the script will automatically attempt the operation without doas
+    * This works for git pull, go build, file operations, and service management
+    * This is particularly useful for testing or when working with public repositories where elevated permissions aren't strictly necessary
+    * For production use with private repositories or system directories, proper doas permissions are still recommended
+
+7.  **Manual Execution (Testing)**:
     Run the script manually to test its functionality and check the log output:
     ```bash
     ./update_go_server.sh

@@ -98,12 +98,30 @@ fi
 # Pull latest changes from the repository
 log_message "Attempting to pull latest changes from Git repository..."
 git_pull_output=""
-if [ -n "${BUILD_USER}" ]; then
-    git_pull_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
-else
+
+# Function to attempt git pull without doas
+attempt_direct_pull() {
+    log_message "Attempting direct git pull without doas..."
     git_pull_output=$(${GIT_CMD} pull 2>&1)
+    return $?
+}
+
+if [ -n "${BUILD_USER}" ]; then
+    # Try with doas first
+    git_pull_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
+    git_pull_status=$?
+    
+    # If doas fails with authentication error and this is likely a public repo, try direct pull
+    if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"doas: Authentication required"* ]]; then
+        log_message "doas authentication required. Trying direct git pull as this might be a public repository..."
+        attempt_direct_pull
+        git_pull_status=$?
+    fi
+else
+    # No BUILD_USER, use direct git pull
+    attempt_direct_pull
+    git_pull_status=$?
 fi
-git_pull_status=$?
 
 if [ ${git_pull_status} -ne 0 ]; then
     log_message "ERROR: Git pull failed with status ${git_pull_status}."
@@ -170,25 +188,56 @@ if [ -n "${BUILD_USER}" ]; then
     GOMODCACHE_DIR="${PROJECT_DIR}/.gomodcache" # For Go modules
     
     log_message "Ensuring Go cache directories exist for ${BUILD_USER} at ${GOCACHE_DIR} and ${GOMODCACHE_DIR}"
-    # Create cache dirs as BUILD_USER. Output/errors from mkdir will go to the main log.
+    
+    # Function to attempt direct mkdir without doas
+    attempt_direct_mkdir() {
+        local dir=$1
+        log_message "Attempting direct mkdir for ${dir} without doas..."
+        mkdir -p "${dir}" 2>&1
+        return $?
+    }
+    
+    # Try to create cache dirs as BUILD_USER
     mkdir_gocache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOCACHE_DIR}" 2>&1)
-    if [ $? -ne 0 ]; then
-        log_message "WARNING: Could not create GOCACHE_DIR (${GOCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gocache_output}"
-        # Depending on Go version, build might still proceed if cache is not critical or uses another fallback.
+    mkdir_gocache_status=$?
+    if [ ${mkdir_gocache_status} -ne 0 ]; then
+        if [[ "${mkdir_gocache_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct mkdir for GOCACHE_DIR..."
+            attempt_direct_mkdir "${GOCACHE_DIR}"
+        else
+            log_message "WARNING: Could not create GOCACHE_DIR (${GOCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gocache_output}"
+            # Depending on Go version, build might still proceed if cache is not critical or uses another fallback.
+        fi
     fi
+    
     mkdir_gomodcache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOMODCACHE_DIR}" 2>&1)
-    if [ $? -ne 0 ]; then
-        log_message "WARNING: Could not create GOMODCACHE_DIR (${GOMODCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gomodcache_output}"
+    mkdir_gomodcache_status=$?
+    if [ ${mkdir_gomodcache_status} -ne 0 ]; then
+        if [[ "${mkdir_gomodcache_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct mkdir for GOMODCACHE_DIR..."
+            attempt_direct_mkdir "${GOMODCACHE_DIR}"
+        else
+            log_message "WARNING: Could not create GOMODCACHE_DIR (${GOMODCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gomodcache_output}"
+        fi
     fi
 
-    log_message "Executing go build as ${BUILD_USER} with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
+    log_message "Executing go build with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
+    # Try with doas first
     build_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_status=$?
+    
+    # If doas fails with authentication error, try direct build
+    if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"doas: Authentication required"* ]]; then
+        log_message "doas authentication required. Trying direct go build..."
+        build_output=$(env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+        build_status=$?
+    fi
 else
     # For root or cron user without specific BUILD_USER, Go will use their default cache locations
     # or system-wide caches if configured.
     build_output=$(${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_status=$?
 fi
-build_status=$?
 
 if [ ${build_status} -ne 0 ]; then
     log_message "ERROR: Go build failed with status ${build_status}."
@@ -200,6 +249,23 @@ if [ ${build_status} -ne 0 ]; then
 fi
 log_message "Go application built successfully to temporary file: ${TMP_BUILD_FILE}"
 
+# Function to attempt direct file operations without doas
+attempt_direct_file_op() {
+    local op=$1
+    local src=$2
+    local dest=$3
+    log_message "Attempting direct ${op} without doas: ${src} to ${dest}..."
+    
+    if [ "${op}" = "mv" ]; then
+        mv "${src}" "${dest}" 2>&1
+        return $?
+    elif [ "${op}" = "rm" ]; then
+        rm -f "${src}" 2>&1
+        return $?
+    fi
+    return 1
+}
+
 # Backup old executable and move new one into place
 if [ -f "${GO_EXECUTABLE_DEST}" ]; then
     CURRENT_BACKUP_FILE="${GO_EXECUTABLE_DEST}.bak_$(date '+%Y%m%d%H%M%S')"
@@ -208,6 +274,13 @@ if [ -f "${GO_EXECUTABLE_DEST}" ]; then
     # Moving files in system directories typically requires elevated privileges
     mv_backup_output=$(${DOAS_CMD} -n mv "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}" 2>&1)
     mv_backup_status=$?
+    
+    # If doas fails with authentication error, try direct mv
+    if [ ${mv_backup_status} -ne 0 ] && [[ "${mv_backup_output}" == *"doas: Authentication required"* ]]; then
+        log_message "doas authentication required. Trying direct mv for backup..."
+        mv_backup_output=$(attempt_direct_file_op "mv" "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}")
+        mv_backup_status=$?
+    fi
 
     if [ ${mv_backup_status} -ne 0 ]; then
         log_message "ERROR: Failed to back up current executable ${GO_EXECUTABLE_DEST}."
@@ -228,6 +301,13 @@ mv_new_output=""
 mv_new_output=$(${DOAS_CMD} -n mv "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
 mv_new_status=$?
 
+# If doas fails with authentication error, try direct mv
+if [ ${mv_new_status} -ne 0 ] && [[ "${mv_new_output}" == *"doas: Authentication required"* ]]; then
+    log_message "doas authentication required. Trying direct mv for new executable..."
+    mv_new_output=$(attempt_direct_file_op "mv" "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}")
+    mv_new_status=$?
+}
+
 if [ ${mv_new_status} -ne 0 ]; then
     log_message "ERROR: Failed to move new executable from ${TMP_BUILD_FILE} to ${GO_EXECUTABLE_DEST}."
     log_message "MV New output: ${mv_new_output}"
@@ -235,7 +315,16 @@ if [ ${mv_new_status} -ne 0 ]; then
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Attempting to restore backup ${CURRENT_BACKUP_FILE} to ${GO_EXECUTABLE_DEST} due to move failure..."
         restore_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
-        if [ $? -eq 0 ]; then
+        restore_status=$?
+        
+        # If doas fails with authentication error, try direct mv
+        if [ ${restore_status} -ne 0 ] && [[ "${restore_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct mv for restore..."
+            restore_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
+            restore_status=$?
+        fi
+        
+        if [ ${restore_status} -eq 0 ]; then
             log_message "Successfully restored backup to ${GO_EXECUTABLE_DEST}."
         else
             log_message "ERROR: Failed to restore backup. System may be in an inconsistent state."
@@ -248,10 +337,24 @@ fi
 log_message "Successfully moved new executable to ${GO_EXECUTABLE_DEST}"
 
 
+# Function to attempt direct service restart without doas
+attempt_direct_service_restart() {
+    log_message "Attempting direct service restart without doas..."
+    ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1
+    return $?
+}
+
 # Restart the rc-service
 log_message "Attempting to restart rc-service ${RC_SERVICE_NAME}..."
 restart_output=$(${DOAS_CMD} -n ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1)
 restart_status=$?
+
+# If doas fails with authentication error, try direct restart
+if [ ${restart_status} -ne 0 ] && [[ "${restart_output}" == *"doas: Authentication required"* ]]; then
+    log_message "doas authentication required. Trying direct service restart..."
+    restart_output=$(attempt_direct_service_restart)
+    restart_status=$?
+}
 
 if [ ${restart_status} -ne 0 ]; then
     log_message "ERROR: Failed to restart rc-service ${RC_SERVICE_NAME} with status ${restart_status}."
@@ -260,7 +363,16 @@ if [ ${restart_status} -ne 0 ]; then
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Moving backup ${CURRENT_BACKUP_FILE} back to ${GO_EXECUTABLE_DEST}."
         rollback_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
-        if [ $? -eq 0 ]; then
+        rollback_status=$?
+        
+        # If doas fails with authentication error, try direct mv
+        if [ ${rollback_status} -ne 0 ] && [[ "${rollback_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct mv for rollback..."
+            rollback_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
+            rollback_status=$?
+        fi
+        
+        if [ ${rollback_status} -eq 0 ]; then
             log_message "Rollback successful. Service ${RC_SERVICE_NAME} may need to be started manually or with another restart attempt."
             # Optionally, try to restart the service again with the old executable
             log_message "Attempting to restart service with rolled-back executable..."
@@ -282,7 +394,15 @@ else
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Deleting backup file from this run: ${CURRENT_BACKUP_FILE}"
         delete_backup_output=$(${DOAS_CMD} -n rm -f "${CURRENT_BACKUP_FILE}" 2>&1)
-        if [ $? -eq 0 ]; then
+        delete_backup_status=$?
+
+        # If doas fails with authentication error, try direct rm
+        if [ ${delete_backup_status} -ne 0 ] && [[ "${delete_backup_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct rm for backup file..."
+            delete_backup_output=$(attempt_direct_file_op "rm" "${CURRENT_BACKUP_FILE}" "")
+            delete_backup_status=$?
+        fi
+        if [ ${delete_backup_status} -eq 0 ]; then
             log_message "Successfully deleted backup file ${CURRENT_BACKUP_FILE}."
         else
             log_message "WARNING: Failed to delete backup file ${CURRENT_BACKUP_FILE}."
