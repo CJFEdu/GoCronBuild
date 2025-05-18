@@ -27,22 +27,19 @@ Before using this script, ensure the following are installed and configured on y
 1.  **Git**: (`/usr/bin/git` or as configured in the script)
 2.  **Go**: (`/usr/local/go/bin/go` or as configured in the script)
 3.  **doas**: (`/usr/bin/doas` or as configured in the script)
-    * The user running the cron job (or the `BUILD_USER` if specified) must have `doas` permissions configured in `/etc/doas.conf` to:
-        * Run `git pull` and `go build` as `BUILD_USER` (if `BUILD_USER` is set).
-        * Run `mv` to move executables in system directories (e.g., `/usr/local/bin/`).
-        * Run `rm` to delete backup executables.
-        * Run `rc-service <your_service_name> restart`.
-        Example `doas.conf` entries (adjust `cronuser` and `yourbuilduser` as needed):
-        ```
-        permit nopass cronuser as root cmd /sbin/rc-service args mygoserver restart
-        permit nopass cronuser as root cmd /usr/bin/mv args /usr/local/bin/yourgoserver /usr/local/bin/yourgoserver.bak_*
-        permit nopass cronuser as root cmd /usr/bin/mv args /usr/local/bin/yourgoserver.tmp.* /usr/local/bin/yourgoserver
-        permit nopass cronuser as root cmd /usr/bin/rm args /usr/local/bin/yourgoserver.bak_*
-        # If using BUILD_USER:
-        permit nopass cronuser as yourbuilduser cmd /usr/bin/git args pull
-        permit nopass cronuser as yourbuilduser cmd /usr/local/go/bin/go args build -o * .
-        ```
+    * The user running the cron job (or the `BUILD_USER` if specified) must have `doas` permissions configured in `/etc/doas.conf`.
     * The script uses the `-n` flag with all doas commands to prevent password prompts. This ensures the script can run unattended, but requires that the `nopass` option is correctly configured in `/etc/doas.conf`.
+    * We provide a helper script to generate the necessary doas configuration:
+        ```bash
+        ./generate_doas_permissions.sh
+        ```
+      This will create a `doas.txt` file with the appropriate entries for your configuration, which you can then add to your `/etc/doas.conf` file.
+    * The generated permissions will include entries for:
+        * Running `git pull` and `go build` as `BUILD_USER` (if `BUILD_USER` is set)
+        * Moving executables in system directories (e.g., `/usr/local/bin/`)
+        * Deleting backup executables
+        * Restarting services with `rc-service`
+    * The script generates both `nopass` entries (for automated execution) and regular entries (for manual execution with password prompts)
 4.  **An existing Go project managed with Git.**
 5.  **An OpenRC init script** for your Go application, managed by `rc-service`.
 
@@ -76,11 +73,27 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
     # Edit config.sh with your specific settings
     nano config.sh
     ```
-3.  **Make the Script Executable**:
+3.  **Make the Scripts Executable**:
     ```bash
-    chmod +x update_go_server.sh
+    chmod +x update_go_server.sh generate_doas_permissions.sh
     ```
-4.  **Manual Execution (Testing)**:
+4.  **Generate doas Permissions**:
+    ```bash
+    ./generate_doas_permissions.sh
+    ```
+    This will create a `doas.txt` file with the necessary doas configuration entries based on your `config.sh` settings.
+    Add these entries to your `/etc/doas.conf` file:
+    ```bash
+    # Review the generated entries first
+    cat doas.txt
+    
+    # Then add them to your doas.conf (requires root privileges)
+    sudo sh -c "cat doas.txt >> /etc/doas.conf"
+    
+    # Verify the doas.conf syntax
+    doas -C /etc/doas.conf
+    ```
+5.  **Manual Execution (Testing)**:
     Run the script manually to test its functionality and check the log output:
     ```bash
     ./update_go_server.sh
