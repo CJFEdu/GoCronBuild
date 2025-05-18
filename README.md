@@ -42,33 +42,48 @@ Before using this script, ensure the following are installed and configured on y
         permit nopass cronuser as yourbuilduser cmd /usr/bin/git args pull
         permit nopass cronuser as yourbuilduser cmd /usr/local/go/bin/go args build -o * .
         ```
+    * The script uses the `-n` flag with all doas commands to prevent password prompts. This ensures the script can run unattended, but requires that the `nopass` option is correctly configured in `/etc/doas.conf`.
 4.  **An existing Go project managed with Git.**
 5.  **An OpenRC init script** for your Go application, managed by `rc-service`.
 
 ## Configuration
 
-The script requires several variables to be set at the top. Edit the script and modify these to match your environment:
+The script uses an external configuration file (`config.sh`) to store all environment-specific settings. A template file (`config.example.sh`) is provided that you should copy and customize:
 
-* `PROJECT_DIR`: Absolute path to your Go project's Git repository (e.g., `/srv/myapp/source`).
-* `GO_EXECUTABLE_NAME`: The name of your compiled Go binary (e.g., `myapp-server`).
-* `GO_EXECUTABLE_DEST`: The full path where the live executable is located and should be updated (e.g., `/usr/local/bin/myapp-server`). This path must match the `command` in your OpenRC init script.
-* `RC_SERVICE_NAME`: The name of your `rc-service` (e.g., `myapp-server`).
-* `LOG_DIR`: Directory where daily log files will be stored (e.g., `/var/log/go_project_updater`). The script will attempt to create this directory.
-* `LOG_BASE_NAME`: The base name for log files (e.g., `myapp_updater`).
-* `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script (e.g., the cron user).
-* `GIT_CMD`, `GO_CMD`, `RC_SERVICE_CMD`, `DOAS_CMD`: Verify these absolute paths to the respective commands.
+1. Copy the example configuration file to create your own configuration:
+   ```bash
+   cp config.example.sh config.sh
+   ```
+
+2. Edit `config.sh` and modify these variables to match your environment:
+   * `PROJECT_DIR`: Absolute path to your Go project's Git repository (e.g., `/srv/myapp/source`).
+   * `GO_EXECUTABLE_NAME`: The name of your compiled Go binary (e.g., `myapp-server`).
+   * `GO_EXECUTABLE_DEST`: The full path where the live executable is located and should be updated (e.g., `/usr/local/bin/myapp-server`). This path must match the `command` in your OpenRC init script.
+   * `RC_SERVICE_NAME`: The name of your `rc-service` (e.g., `myapp-server`).
+   * `LOG_DIR`: Directory where daily log files will be stored (e.g., `/var/log/go_project_updater`). The script will attempt to create this directory.
+   * `LOG_BASE_NAME`: The base name for log files (e.g., `myapp_updater`).
+   * `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script (e.g., the cron user).
+   * `GIT_CMD`, `GO_CMD`, `RC_SERVICE_CMD`, `DOAS_CMD`: Verify these absolute paths to the respective commands.
+
+The `config.sh` file is ignored by Git, so your local settings won't be overwritten when you pull updates from the repository.
 
 ## Usage
 
-1.  **Save the Script**: Save the script to a file, for example, `/usr/local/sbin/update_go_server.sh`.
-2.  **Make it Executable**:
+1.  **Clone the Repository**: Clone this repository to your desired location.
+2.  **Configure the Script**: 
     ```bash
-    doas chmod +x /usr/local/sbin/update_go_server.sh
+    cp config.example.sh config.sh
+    # Edit config.sh with your specific settings
+    nano config.sh
     ```
-3.  **Manual Execution (Testing)**:
+3.  **Make the Script Executable**:
+    ```bash
+    chmod +x update_go_server.sh
+    ```
+4.  **Manual Execution (Testing)**:
     Run the script manually to test its functionality and check the log output:
     ```bash
-    doas /usr/local/sbin/update_go_server.sh
+    ./update_go_server.sh
     ```
     Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-MM-DD.log`) for detailed output.
 
@@ -92,17 +107,17 @@ To automate the update process, you can run this script via cron.
 
     * To run the script daily at 3:00 AM:
         ```cron
-        0 3 * * * /usr/local/sbin/update_go_server.sh
+        0 3 * * * /path/to/GoCronBuild/update_go_server.sh
         ```
     * To run every hour:
         ```cron
-        0 * * * * /usr/local/sbin/update_go_server.sh
+        0 * * * * /path/to/GoCronBuild/update_go_server.sh
         ```
 
     **Important Considerations for Cron:**
     * **Environment:** Cron jobs run with a minimal environment. The script uses absolute paths for commands to mitigate `PATH` issues. If your Go build process depends on specific environment variables (e.g., `GOPATH`, `GOCACHE`, `GOMODCACHE`), ensure they are either set within the script itself or defined in the crontab entry.
         ```cron
-        0 3 * * * GOPATH=/home/user/go GOCACHE=/home/user/.cache/go-build /usr/local/sbin/update_go_server.sh
+        0 3 * * * GOPATH=/home/user/go GOCACHE=/home/user/.cache/go-build /path/to/GoCronBuild/update_go_server.sh
         ```
     * **`doas` Configuration**: Ensure your `/etc/doas.conf` allows the user running the cron job to execute the necessary commands without a password prompt if unattended operation is desired.
     * **SSH Keys for Git**: If your Git repository is private and uses SSH authentication, the user under which `git pull` runs (the cron user or `BUILD_USER`) must have its SSH key correctly set up and authorized for the repository, typically without a passphrase for unattended cron jobs.
