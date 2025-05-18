@@ -93,7 +93,29 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
     # Verify the doas.conf syntax
     doas -C /etc/doas.conf
     ```
-5.  **Manual Execution (Testing)**:
+5.  **Handling Git Ownership Issues**:
+    When working with repositories owned by different users, you might encounter this error:
+    ```
+    fatal: detected dubious ownership in repository at '/path/to/repo'
+    ```
+    
+    This is a Git security feature. To resolve it, you can either:
+    
+    * Configure Git to allow the specific directory:
+      ```bash
+      # As the user running the script
+      git config --global --add safe.directory /path/to/your/go/project
+      
+      # Or as the BUILD_USER (if applicable)
+      doas -u yourbuilduser git config --global --add safe.directory /path/to/your/go/project
+      ```
+    
+    * Or disable the check completely (less secure):
+      ```bash
+      git config --global safe.directory '*'
+      ```
+
+6.  **Manual Execution (Testing)**:
     Run the script manually to test its functionality and check the log output:
     ```bash
     ./update_go_server.sh
