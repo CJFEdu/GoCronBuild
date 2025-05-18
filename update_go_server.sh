@@ -189,10 +189,29 @@ fi
 log_message "Building to temporary file: ${TMP_BUILD_FILE}"
 
 build_output=""
-# Ensure GOCACHE and GOMODCACHE are writable by the BUILD_USER if set, or the cron user.
 if [ -n "${BUILD_USER}" ]; then
-    build_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    # Define and ensure Go cache directories exist and are writable by BUILD_USER
+    # These will be created within the project directory.
+    GOCACHE_DIR="${PROJECT_DIR}/.gocache"
+    GOMODCACHE_DIR="${PROJECT_DIR}/.gomodcache" # For Go modules
+    
+    log_message "Ensuring Go cache directories exist for ${BUILD_USER} at ${GOCACHE_DIR} and ${GOMODCACHE_DIR}"
+    # Create cache dirs as BUILD_USER. Output/errors from mkdir will go to the main log.
+    mkdir_gocache_output=$(${DOAS_CMD} -u "${BUILD_USER}" mkdir -p "${GOCACHE_DIR}" 2>&1)
+    if [ $? -ne 0 ]; then
+        log_message "WARNING: Could not create GOCACHE_DIR (${GOCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gocache_output}"
+        # Depending on Go version, build might still proceed if cache is not critical or uses another fallback.
+    fi
+    mkdir_gomodcache_output=$(${DOAS_CMD} -u "${BUILD_USER}" mkdir -p "${GOMODCACHE_DIR}" 2>&1)
+    if [ $? -ne 0 ]; then
+        log_message "WARNING: Could not create GOMODCACHE_DIR (${GOMODCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gomodcache_output}"
+    fi
+
+    log_message "Executing go build as ${BUILD_USER} with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
+    build_output=$(${DOAS_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
 else
+    # For root or cron user without specific BUILD_USER, Go will use their default cache locations
+    # or system-wide caches if configured.
     build_output=$(${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
 fi
 build_status=$?
