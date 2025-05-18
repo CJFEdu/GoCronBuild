@@ -1,0 +1,16 @@
+# Ignore the actual configuration file but keep the example
+config.sh
+
+# Ignore log files
+*.log
+
+# Ignore temporary files
+*.tmp*
+*.bak*
+
+# Ignore Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
