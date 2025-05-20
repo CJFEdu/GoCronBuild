@@ -1,8 +1,8 @@
-# Go Cron Build for Ubuntu
+# Go Cron Build for Alpine Linux
 
-This shell script automates the process of updating a Go application deployed on Ubuntu systems. It is designed to run as a cron job to periodically check for updates in a Git repository, rebuild the Go application if changes are found, and then restart the corresponding systemd service.
+This shell script automates the process of updating a Go application deployed on Alpine Linux systems. It is designed to run as a cron job to periodically check for updates in a Git repository, rebuild the Go application if changes are found, and then restart the corresponding OpenRC service.
 
-**Note:** This script is specifically designed for Ubuntu systems. For the Alpine Linux version, please see the README_ALPINE.md file.
+**Note:** This script is specifically designed for Alpine Linux systems. For the Ubuntu version, please see the README.md file.  Only the update_go_server_alpine.sh and generate_doas_permissions.sh scripts have been tested. The initialize_go_server_alpine.sh and create_users_alpine.sh scripts have not been tested.
 
 ## Features
 
@@ -12,7 +12,7 @@ This shell script automates the process of updating a Go application deployed on
     * Builds the new executable to a temporary file.
     * If the build is successful, it backs up the current live executable.
     * Moves the newly built executable into the live location.
-* **Service Restart**: Restarts the specified systemd service after a successful update.
+* **Service Restart**: Restarts the specified OpenRC service after a successful update.
 * **Rollback on Restart Failure**: If the service fails to restart with the new executable, it attempts to move the backup executable back into place and restart the service again.
 * **Logging**:
     * Maintains daily log files (e.g., `go_project_updater_YYYY-MM-DD.log`).
@@ -20,19 +20,19 @@ This shell script automates the process of updating a Go application deployed on
 * **Backup Management**:
     * Creates a timestamped backup of the live executable before replacing it (e.g., `yourgoserver.bak_YYYYMMDDHHMMSS`).
     * Deletes the backup created during the current run if the service restarts successfully with the new version.
-* **Ubuntu Integration**: Uses `sudo` for privilege escalation and `systemd` for service management.
+* **Alpine Integration**: Uses `doas` for privilege escalation and `OpenRC` for service management.
 
 ## Prerequisites
 
-Before using this script on Ubuntu, ensure the following are installed and configured:
+Before using this script on Alpine Linux, ensure the following are installed and configured:
 
 1. **Git**: (`/usr/bin/git` or as configured in the script)
 2. **Go**: (`/usr/bin/go` or as configured in the script)
-3. **sudo**: (pre-installed on Ubuntu)
-   * The user running the cron job (or the `BUILD_USER` if specified) must have `sudo` permissions configured.
-   * The script uses the `-n` flag with all sudo commands to prevent password prompts. This ensures the script can run unattended, but requires that the `NOPASSWD` option is correctly configured in sudoers.
+3. **doas**: (must be installed on Alpine Linux)
+   * The user running the cron job (or the `BUILD_USER` if specified) must have `doas` permissions configured.
+   * The script uses the `-n` flag with all doas commands to prevent password prompts. This ensures the script can run unattended, but requires that the `permit nopass` option is correctly configured in doas.conf.
 4. **An existing Go project managed with Git.**
-5. **systemd** (pre-installed on Ubuntu) for service management.
+5. **OpenRC** (pre-installed on Alpine Linux) for service management.
 
 ## Configuration
 
@@ -44,15 +44,15 @@ The script uses an external configuration file (`config.sh`) to store all enviro
    ```
 
 2. Edit `config.sh` and modify these variables to match your environment:
-   * `GIT_REPO_URL`: Git repository URL to clone (required for initialize_go_server_ubuntu.sh)
-   * `GIT_BRANCH`: Git branch to use (required for initialize_go_server_ubuntu.sh)
-   * `SERVICE_USER`: User to run the service as (required for initialize_go_server_ubuntu.sh)
-   * `SERVICE_DESCRIPTION`: Description for the systemd service
+   * `GIT_REPO_URL`: Git repository URL to clone (required for initialize_go_server_alpine.sh)
+   * `GIT_BRANCH`: Git branch to use (required for initialize_go_server_alpine.sh)
+   * `SERVICE_USER`: User to run the service as (required for initialize_go_server_alpine.sh)
+   * `SERVICE_DESCRIPTION`: Description for the OpenRC service
    * `SERVICE_WORKING_DIR`: Working directory for the service (defaults to PROJECT_DIR if not set)
    * `PROJECT_DIR`: Absolute path to your Go project's Git repository (e.g., `/srv/myapp/source`).
    * `GO_EXECUTABLE_NAME`: The name of your compiled Go binary (e.g., `myapp-server`).
    * `GO_EXECUTABLE_DEST`: The full path where the live executable is located and should be updated (e.g., `/usr/local/bin/myapp-server`).
-   * `RC_SERVICE_NAME`: The name of your systemd service (e.g., `myapp-server`).
+   * `RC_SERVICE_NAME`: The name of your OpenRC service (e.g., `myapp-server`).
    * `LOG_DIR`: Directory where daily log files will be stored (e.g., `/var/log/go_project_updater`).
    * `LOG_BASE_NAME`: The base name for log files (e.g., `myapp_updater`).
    * `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script.
@@ -78,18 +78,18 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
 
 3. **Make the Scripts Executable**:
    ```bash
-   chmod +x update_go_server.sh generate_sudo_permissions.sh initialize_go_server_ubuntu.sh create_users_ubuntu.sh
+   chmod +x update_go_server_alpine.sh generate_doas_permissions.sh initialize_go_server_alpine.sh create_users_alpine.sh
    ```
 
 ### 2. User Setup (Optional)
 
-If you want to use dedicated users for building and running your Go application (recommended for security), you can use the `create_users_ubuntu.sh` script to set them up:
+If you want to use dedicated users for building and running your Go application (recommended for security), you can use the `create_users_alpine.sh` script to set them up:
 
 ```bash
 # Edit config.sh first to define BUILD_USER and SERVICE_USER
 
-# Run the user setup script with sudo
-sudo ./create_users_ubuntu.sh
+# Run the user setup script with doas
+doas ./create_users_alpine.sh
 ```
 
 This script will:
@@ -100,85 +100,82 @@ This script will:
 * Create Go cache directories for the build user
 * Ensure all necessary directories exist with proper permissions
 
-### 3. Generate Sudo Permissions
+### 3. Generate Doas Permissions
 
-Generate the necessary sudo permissions for your users:
+Generate the necessary doas permissions for your users:
 
 ```bash
-./generate_sudo_permissions.sh
+./generate_doas_permissions.sh
 ```
 
-This will create a `sudoers.txt` file with the necessary sudo configuration entries based on your `config.sh` settings.
+This will create a `doas.txt` file with the necessary doas configuration entries based on your `config.sh` settings.
 
-Create a dedicated sudoers file and add the entries:
+Create or update your doas configuration file:
 
 ```bash
 # Review the generated entries first
-cat sudoers.txt
+cat doas.txt
 
-# Create a dedicated sudoers file (this will open an editor)
-sudo visudo -f /etc/sudoers.d/gocronbuild
+# Add the entries to your doas configuration file
+doas vi /etc/doas.d/gocronbuild.conf
 
 # After adding the entries and saving, set proper permissions
-sudo chmod 440 /etc/sudoers.d/gocronbuild
-
-# Verify the sudoers syntax
-sudo visudo -c -f /etc/sudoers.d/gocronbuild
+doas chmod 440 /etc/doas.d/gocronbuild.conf
 ```
 
-> **⚠️ Security Warning**: Always use `visudo` to edit sudoers files to avoid syntax errors that could lock you out of the system. Never use standard text editors directly on sudoers files.
+> **⚠️ Security Warning**: Be careful when editing doas configuration files to avoid syntax errors that could lock you out of the system.
 
 ### 4. Initialize the Go Server
 
-The `initialize_go_server_ubuntu.sh` script handles the complete setup process for your Go application:
+The `initialize_go_server_alpine.sh` script handles the complete setup process for your Go application:
 
 ```bash
-./initialize_go_server_ubuntu.sh
+./initialize_go_server_alpine.sh
 ```
 
 This script will:
 
 * Clone your Git repository (using BUILD_USER if specified)
 * Build the Go application
-* Create a systemd service unit
+* Create an OpenRC service script in /etc/init.d/
 * Start the service
 * Enable the service to start on boot
-* Generate sudo permissions
+* Generate doas permissions
 
 The script provides detailed logs of each step and a summary at the end with commands for managing the service.
 
 ## Managing the Service
 
-After setting up the service with the initialization script, you can manage it using standard systemd commands:
+After setting up the service with the initialization script, you can manage it using standard OpenRC commands:
 
 ```bash
 # Start the service
-sudo systemctl start [service-name]
+doas rc-service [service-name] start
 
 # Stop the service
-sudo systemctl stop [service-name]
+doas rc-service [service-name] stop
 
 # Restart the service
-sudo systemctl restart [service-name]
+doas rc-service [service-name] restart
 
 # Check service status
-sudo systemctl status [service-name]
+doas rc-service [service-name] status
 
 # Enable service to start on boot
-sudo systemctl enable [service-name]
+doas rc-update add [service-name] default
 
 # Disable service from starting on boot
-sudo systemctl disable [service-name]
+doas rc-update del [service-name] default
 ```
 
 You can view the service logs with:
 
 ```bash
 # View all logs
-sudo journalctl -u [service-name]
+cat /var/log/[service-name].log
 
 # Follow logs in real-time
-sudo journalctl -u [service-name] -f
+tail -f /var/log/[service-name].log
 ```
 
 ### 5. Handling Git Ownership Issues
@@ -205,7 +202,7 @@ If you prefer to manually configure this, you can:
   git config --global --add safe.directory /path/to/your/go/project
   
   # Or as the BUILD_USER (if applicable)
-  sudo -u yourbuilduser git config --global --add safe.directory /path/to/your/go/project
+  doas -u yourbuilduser git config --global --add safe.directory /path/to/your/go/project
   ```
 
 * Or disable the check completely (less secure):
@@ -215,18 +212,18 @@ If you prefer to manually configure this, you can:
 
 ### 6. Public Repository Support
 
-The script includes fallback mechanisms for public repositories, allowing it to work even without sudo permissions:
+The script includes fallback mechanisms for public repositories, allowing it to work even without doas permissions:
 
-* If a sudo command fails with `sudo: a password is required`, the script will automatically attempt the operation without sudo
+* If a doas command fails with `doas: Authentication required`, the script will automatically attempt the operation without doas
 * This works for git pull, go build, file operations, and service management
 * This is particularly useful for testing or when working with public repositories where elevated permissions aren't strictly necessary
-* For production use with private repositories or system directories, proper sudo permissions are still recommended
+* For production use with private repositories or system directories, proper doas permissions are still recommended
 
 ### 7. Manual Execution (Testing)
 
 Run the script manually to test its functionality and check the log output:
 ```bash
-./update_go_server.sh
+./update_go_server_alpine.sh
 ```
 Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-MM-DD.log`) for detailed output.
 
@@ -234,7 +231,7 @@ Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-M
 
 To automate the update process, you can run the update script via cron:
 
-1. Edit the crontab (as the user with appropriate sudo permissions):
+1. Edit the crontab (as the user with appropriate doas permissions):
    ```bash
    crontab -e
    ```
@@ -242,18 +239,18 @@ To automate the update process, you can run the update script via cron:
 2. Add a cron job entry:
    ```cron
    # Run daily at 3:00 AM
-   0 3 * * * /path/to/GoCronBuild/update_go_server.sh
+   0 3 * * * /path/to/GoCronBuild/update_go_server_alpine.sh
    ```
 
    Or to run every hour:
    ```cron
-   0 * * * * /path/to/GoCronBuild/update_go_server.sh
+   0 * * * * /path/to/GoCronBuild/update_go_server_alpine.sh
    ```
 
 ## Troubleshooting
 
-* **Permission Issues**: Ensure that your sudoers configuration includes the appropriate `NOPASSWD` entries for the user running the cron job.
-* **Service Fails to Start**: Check the service logs with `sudo journalctl -u [service-name]` for error messages.
+* **Permission Issues**: Ensure that your doas configuration includes the appropriate `permit nopass` entries for the user running the cron job.
+* **Service Fails to Start**: Check the service logs at `/var/log/[service-name].log` and `/var/log/[service-name].err` for error messages.
 * **Git Authentication**: If your Git repository is private and uses SSH authentication, ensure the user has its SSH key correctly set up.
 
 ## Logging
@@ -275,5 +272,5 @@ To automate the update process, you can run the update script via cron:
 ## Security Considerations
 
 * Use dedicated users for building and running the service to follow the principle of least privilege.
-* Regularly review and update the sudo permissions to ensure they're as restrictive as possible.
+* Regularly review and update the doas permissions to ensure they're as restrictive as possible.
 * Consider using SSH keys with passphrases for Git authentication in production environments.
