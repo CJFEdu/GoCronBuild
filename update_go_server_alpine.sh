@@ -73,20 +73,27 @@ fi
 
 log_message "--- Script started ---" # Main script operational log start
 
-# Check if project directory exists
-if [ ! -d "${PROJECT_DIR}" ]; then
-    log_message "ERROR: Project directory ${PROJECT_DIR} not found. Exiting."
-    log_message "--- Script finished with errors ---"
+# Check if repository directory exists
+if [ ! -d "${REPO_PATH}" ]; then
+    log_message "ERROR: Repository directory ${REPO_PATH} not found. Exiting."
     exit 1
 fi
 
-# Navigate to the project directory
-cd "${PROJECT_DIR}" || {
-    log_message "ERROR: Could not navigate to project directory ${PROJECT_DIR}. Exiting."
-    log_message "--- Script finished with errors ---"
+# Check if project directory exists
+if [ ! -d "${PROJECT_DIR}" ]; then
+    log_message "ERROR: Project directory ${PROJECT_DIR} not found. Exiting."
+    exit 1
+fi
+
+# --- Git Operations ---
+
+# Change to the repository directory for Git operations
+cd "${REPO_PATH}" || {
+    log_message "ERROR: Could not navigate to repository directory ${REPO_PATH}. Exiting."
     exit 1
 }
-log_message "Successfully navigated to ${PROJECT_DIR}"
+
+log_message "Successfully navigated to repository directory: ${REPO_PATH}"
 
 # Function to handle Git dubious ownership errors
 handle_git_dubious_ownership() {
@@ -260,6 +267,15 @@ if [ "${rebuild_needed}" = false ]; then
 fi
 
 log_message "Changes detected or rebuild forced. Proceeding with rebuild."
+
+# --- Change to the project directory for building ---
+if [ "${REPO_PATH}" != "${PROJECT_DIR}" ]; then
+    cd "${PROJECT_DIR}" || {
+        log_message "ERROR: Failed to change to project directory ${PROJECT_DIR}."
+        exit 1
+    }
+    log_message "Changed to project directory: ${PROJECT_DIR}"
+fi
 
 # Rebuild the Go application
 log_message "Rebuilding Go application (${GO_EXECUTABLE_NAME})..."

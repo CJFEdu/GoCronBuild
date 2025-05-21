@@ -62,6 +62,11 @@ fi
 log_message "--- Starting Go project update script ---"
 
 # Validate required variables
+if [ -z "${REPO_PATH}" ]; then
+    log_message "ERROR: REPO_PATH is not set in config.sh"
+    exit 1
+fi
+
 if [ -z "${PROJECT_DIR}" ]; then
     log_message "ERROR: PROJECT_DIR is not set in config.sh"
     exit 1
@@ -82,21 +87,20 @@ if [ -z "${RC_SERVICE_NAME}" ]; then
     exit 1
 fi
 
-# Check if project directory exists
-if [ ! -d "${PROJECT_DIR}" ]; then
-    log_message "ERROR: Project directory ${PROJECT_DIR} does not exist."
+# Check if repository directory exists
+if [ ! -d "${REPO_PATH}" ]; then
+    log_message "ERROR: Repository directory ${REPO_PATH} does not exist."
+    log_message "Please make sure the directory exists and contains a valid Git repository."
     exit 1
 fi
 
-# --- Git Operations ---
-
-# Change to the project directory
-cd "${PROJECT_DIR}" || {
-    log_message "ERROR: Failed to change to project directory ${PROJECT_DIR}."
+# Change to the repository directory for Git operations
+cd "${REPO_PATH}" || {
+    log_message "ERROR: Failed to change to repository directory ${REPO_PATH}."
     exit 1
 }
 
-log_message "Changed to project directory: ${PROJECT_DIR}"
+log_message "Changed to repository directory: ${REPO_PATH}"
 
 # Function to handle Git's dubious ownership error
 handle_dubious_ownership() {
@@ -242,6 +246,15 @@ elif [ "${old_commit}" = "${new_commit}" ]; then
 fi
 
 log_message "Changes detected. Proceeding with build."
+
+# --- Change to the project directory for building ---
+if [ "${REPO_PATH}" != "${PROJECT_DIR}" ]; then
+    cd "${PROJECT_DIR}" || {
+        log_message "ERROR: Failed to change to project directory ${PROJECT_DIR}."
+        exit 1
+    }
+    log_message "Changed to project directory: ${PROJECT_DIR}"
+fi
 
 # --- Build Operations ---
 

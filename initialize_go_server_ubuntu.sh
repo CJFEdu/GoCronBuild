@@ -53,11 +53,14 @@ check_var() {
 
 check_var "GIT_REPO_URL" "${GIT_REPO_URL}"
 check_var "GIT_BRANCH" "${GIT_BRANCH}"
+check_var "SERVICE_USER" "${SERVICE_USER}"
+check_var "REPO_PATH" "${REPO_PATH}"
 check_var "PROJECT_DIR" "${PROJECT_DIR}"
 check_var "GO_EXECUTABLE_NAME" "${GO_EXECUTABLE_NAME}"
 check_var "GO_EXECUTABLE_DEST" "${GO_EXECUTABLE_DEST}"
 check_var "RC_SERVICE_NAME" "${RC_SERVICE_NAME}"
-check_var "SERVICE_USER" "${SERVICE_USER}"
+check_var "LOG_DIR" "${LOG_DIR}"
+check_var "LOG_BASE_NAME" "${LOG_BASE_NAME}"
 check_var "SERVICE_DESCRIPTION" "${SERVICE_DESCRIPTION}"
 
 if [ ${MISSING_VARS} -gt 0 ]; then
@@ -74,110 +77,100 @@ fi
 # --- Step 1: Clone the Git repository ---
 log_message "Step 1: Cloning Git repository from ${GIT_REPO_URL} (branch: ${GIT_BRANCH})..."
 
-# Check if PROJECT_DIR already exists
-if [ -d "${PROJECT_DIR}" ]; then
-    log_message "WARNING: Project directory ${PROJECT_DIR} already exists."
-    read -p "Do you want to remove it and clone fresh? (y/n): " -n 1 -r
+# Check if REPO_PATH already exists
+if [ -d "${REPO_PATH}" ]; then
+    log_message "WARNING: Repository directory ${REPO_PATH} already exists."
+    read -p "Do you want to remove it and start fresh? (y/n): " -r
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_message "Removing existing project directory..."
-        rm -rf "${PROJECT_DIR}"
+        log_message "Removing existing repository directory..."
+        rm -rf "${REPO_PATH}"
+        log_message "Directory removed."
     else
-        log_message "Using existing project directory. Skipping clone step."
-        # Check if it's a git repository
-        if [ ! -d "${PROJECT_DIR}/.git" ]; then
-            log_message "ERROR: Existing directory is not a Git repository. Please remove it or specify a different PROJECT_DIR."
+        log_message "Using existing directory."
+        if [ ! -d "${REPO_PATH}/.git" ]; then
+            log_message "ERROR: Existing directory is not a Git repository. Please remove it or specify a different REPO_PATH."
             exit 1
         fi
-        # Go to step 2
     fi
 fi
 
 # Create parent directory if needed
-PARENT_DIR=$(dirname "${PROJECT_DIR}")
+PARENT_DIR=$(dirname "${REPO_PATH}")
 if [ ! -d "${PARENT_DIR}" ]; then
     log_message "Creating parent directory: ${PARENT_DIR}"
-    mkdir -p "${PARENT_DIR}"
-    if [ $? -ne 0 ]; then
-        log_message "ERROR: Failed to create parent directory. Check permissions."
+    mkdir -p "${PARENT_DIR}" || {
+        log_message "ERROR: Failed to create parent directory. Exiting."
         exit 1
-    fi
+    }
 fi
 
-# Clone the repository if needed
-if [ ! -d "${PROJECT_DIR}" ]; then
-    log_message "Cloning repository..."
+# Ensure PROJECT_DIR parent directories exist
+PROJECT_PARENT_DIR=$(dirname "${PROJECT_DIR}")
+if [ ! -d "${PROJECT_PARENT_DIR}" ] && [ "${PROJECT_PARENT_DIR}" != "${REPO_PATH}" ]; then
+    log_message "Creating project parent directory: ${PROJECT_PARENT_DIR}"
+    mkdir -p "${PROJECT_PARENT_DIR}" || {
+        log_message "ERROR: Failed to create project parent directory. Exiting."
+        exit 1
+    }
+fi
+
+# Clone the repository if it doesn't exist
+log_message "Cloning repository..."
+if [ ! -d "${REPO_PATH}" ]; then
+    log_message "Cloning from ${GIT_REPO_URL} (branch: ${GIT_BRANCH})..."
     
-    # Use BUILD_USER if specified
+    # Create directory with appropriate permissions
     if [ -n "${BUILD_USER}" ]; then
-        log_message "Cloning as user: ${BUILD_USER}"
+        log_message "Creating directory with permissions for BUILD_USER: ${BUILD_USER}"
+        mkdir -p "${PARENT_DIR}" || {
+            log_message "ERROR: Failed to create parent directory. Exiting."
+            exit 1
+        }
         
-        # Ensure the parent directory has proper permissions for BUILD_USER
-        if [ -d "${PARENT_DIR}" ]; then
-            log_message "Setting permissions on parent directory for ${BUILD_USER}..."
-            ${SUDO_CMD} chown "${BUILD_USER}" "${PARENT_DIR}"
-        fi
-        
-        git_clone_output=$(${SUDO_CMD} -u "${BUILD_USER}" ${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${PROJECT_DIR}" 2>&1)
+        # Clone the repository as BUILD_USER
+        log_message "Cloning repository as ${BUILD_USER}..."
+        git_clone_output=$(${SUDO_CMD} -u "${BUILD_USER}" ${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${REPO_PATH}" 2>&1)
     else
-        git_clone_output=$(${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${PROJECT_DIR}" 2>&1)
+        log_message "Cloning repository as current user..."
+        git_clone_output=$(${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${REPO_PATH}" 2>&1)
     fi
-    git_clone_status=$?
     
-    if [ ${git_clone_status} -ne 0 ]; then
-        log_message "ERROR: Git clone failed with status ${git_clone_status}."
-        log_message "Git output: ${git_clone_output}"
+    # Check if clone was successful
+    if [ $? -ne 0 ]; then
+        log_message "ERROR: Failed to clone repository. Output:\n${git_clone_output}"
         exit 1
     fi
-    log_message "Repository cloned successfully to ${PROJECT_DIR}"
+    log_message "Repository cloned successfully to ${REPO_PATH}"
 else
-    # If directory exists and is a git repo, pull latest changes
-    cd "${PROJECT_DIR}" || {
-        log_message "ERROR: Could not navigate to project directory ${PROJECT_DIR}. Exiting."
+    log_message "Repository directory already exists. Skipping clone."
+    cd "${REPO_PATH}" || {
+        log_message "ERROR: Could not navigate to repository directory ${REPO_PATH}. Exiting."
         exit 1
     }
     
+    # Update the repository
     log_message "Updating existing repository..."
-    
-    # Use BUILD_USER if specified
-    if [ -n "${BUILD_USER}" ]; then
-        log_message "Updating as user: ${BUILD_USER}"
-        git_checkout_output=$(${SUDO_CMD} -u "${BUILD_USER}" ${GIT_CMD} checkout "${GIT_BRANCH}" 2>&1)
-    else
-        git_checkout_output=$(${GIT_CMD} checkout "${GIT_BRANCH}" 2>&1)
-    fi
-    git_checkout_status=$?
-    
-    if [ ${git_checkout_status} -ne 0 ]; then
-        log_message "ERROR: Git checkout to branch ${GIT_BRANCH} failed with status ${git_checkout_status}."
-        log_message "Git output: ${git_checkout_output}"
-        exit 1
-    fi
-    
-    # Use BUILD_USER if specified
     if [ -n "${BUILD_USER}" ]; then
         git_pull_output=$(${SUDO_CMD} -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
     else
         git_pull_output=$(${GIT_CMD} pull 2>&1)
     fi
-    git_pull_status=$?
     
-    if [ ${git_pull_status} -ne 0 ]; then
-        log_message "ERROR: Git pull failed with status ${git_pull_status}."
-        log_message "Git output: ${git_pull_output}"
+    if [ $? -ne 0 ]; then
+        log_message "ERROR: Failed to update repository. Output:\n${git_pull_output}"
         exit 1
     fi
-    log_message "Repository updated successfully"
+    log_message "Repository updated successfully."
 fi
 
 # --- Step 2: Build the Go application ---
 log_message "Step 2: Building Go application..."
-
-# Navigate to the project directory
 cd "${PROJECT_DIR}" || {
     log_message "ERROR: Could not navigate to project directory ${PROJECT_DIR}. Exiting."
     exit 1
 }
+log_message "Changed to project directory: ${PROJECT_DIR}"
 
 # Create a temporary build path
 TMP_BUILD_FILE=$(mktemp "/tmp/${GO_EXECUTABLE_NAME}.XXXXXX")
@@ -326,8 +319,9 @@ fi
 
 # --- Final Summary ---
 log_message "=== Initialization Complete ==="
-log_message "Go application has been successfully set up:"
-log_message "- Repository cloned to: ${PROJECT_DIR}"
+log_message "Summary of initialization:"
+log_message "- Repository cloned to: ${REPO_PATH}"
+log_message "- Go application built from: ${PROJECT_DIR}"
 log_message "- Executable installed at: ${GO_EXECUTABLE_DEST}"
 log_message "- Service name: ${RC_SERVICE_NAME}"
 log_message "- Service status: $(${SUDO_CMD} systemctl is-active "${RC_SERVICE_NAME}")"

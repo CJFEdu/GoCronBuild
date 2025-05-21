@@ -61,6 +61,7 @@ check_var "GIT_CMD" "${GIT_CMD}"
 check_var "GO_CMD" "${GO_CMD}"
 check_var "RC_SERVICE_CMD" "${RC_SERVICE_CMD}"
 check_var "DOAS_CMD" "${DOAS_CMD}"
+check_var "REPO_PATH" "${REPO_PATH}"
 
 if [ ${MISSING_VARS} -gt 0 ]; then
     log_message "ERROR: ${MISSING_VARS} required variable(s) missing. Please update your config.sh"
@@ -72,89 +73,94 @@ log_message "Configuration validated successfully."
 # --- Step 1: Clone the repository ---
 log_message "Step 1: Cloning repository..."
 
-# Check if the project directory already exists
-if [ -d "${PROJECT_DIR}" ]; then
-    log_message "Project directory already exists: ${PROJECT_DIR}"
-    log_message "Checking if it's a Git repository..."
-    
-    # Change to the project directory
-    cd "${PROJECT_DIR}" || {
-        log_message "ERROR: Failed to change to project directory ${PROJECT_DIR}."
-        exit 1
-    }
-    
-    # Check if it's a Git repository
-    if [ -d ".git" ]; then
-        log_message "Git repository already exists. Updating..."
-        
-        # Use BUILD_USER if specified
-        if [ -n "${BUILD_USER}" ]; then
-            log_message "Updating as user: ${BUILD_USER}"
-            git_checkout_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GIT_CMD} checkout "${GIT_BRANCH}" 2>&1)
-        else
-            git_checkout_output=$(${GIT_CMD} checkout "${GIT_BRANCH}" 2>&1)
-        fi
-        git_checkout_status=$?
-        
-        if [ ${git_checkout_status} -ne 0 ]; then
-            log_message "WARNING: Failed to checkout branch ${GIT_BRANCH}. Output: ${git_checkout_output}"
-            log_message "Continuing anyway..."
-        fi
-        
-        # Use BUILD_USER if specified
-        if [ -n "${BUILD_USER}" ]; then
-            git_pull_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
-        else
-            git_pull_output=$(${GIT_CMD} pull 2>&1)
-        fi
-        git_pull_status=$?
-        
-        if [ ${git_pull_status} -ne 0 ]; then
-            log_message "ERROR: Failed to pull latest changes. Output: ${git_pull_output}"
-            exit 1
-        fi
-        
-        log_message "Repository updated successfully."
-    else
-        log_message "ERROR: Directory exists but is not a Git repository: ${PROJECT_DIR}"
-        log_message "Please remove or rename the directory and try again."
-        exit 1
-    fi
-else
-    log_message "Project directory does not exist. Cloning repository..."
-    
-    # Create parent directory if needed
-    PARENT_DIR=$(dirname "${PROJECT_DIR}")
-    if [ ! -d "${PARENT_DIR}" ]; then
-        log_message "Creating parent directory: ${PARENT_DIR}"
-        mkdir -p "${PARENT_DIR}" || {
-            log_message "ERROR: Failed to create parent directory ${PARENT_DIR}."
+# Check if repository directory already exists
+if [ -d "${REPO_PATH}" ]; then
+    log_message "Repository directory already exists: ${REPO_PATH}"
+    read -p "Do you want to remove it and start fresh? (y/n): " -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        cd "${REPO_PATH}" || {
+            log_message "ERROR: Failed to change to repository directory ${REPO_PATH}."
             exit 1
         }
-    fi
-    
-    # Use BUILD_USER if specified
-    if [ -n "${BUILD_USER}" ]; then
-        log_message "Cloning as user: ${BUILD_USER}"
-        # Ensure the parent directory has proper permissions for BUILD_USER
-        if [ -d "${PARENT_DIR}" ]; then
-            log_message "Setting permissions on parent directory for ${BUILD_USER}..."
-            ${DOAS_CMD} chown "${BUILD_USER}" "${PARENT_DIR}"
+        
+        # Check if it's a git repository
+        if [ -d ".git" ]; then
+            # Get the remote URL to confirm it's the right repository
+            REMOTE_URL=$(${GIT_CMD} config --get remote.origin.url 2>/dev/null)
+            if [ -n "${REMOTE_URL}" ]; then
+                log_message "Current repository URL: ${REMOTE_URL}"
+                if [ "${REMOTE_URL}" != "${GIT_REPO_URL}" ]; then
+                    log_message "WARNING: Current repository URL does not match the configured URL."
+                    read -p "Continue anyway? (y/n): " -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        log_message "Aborting initialization."
+                        exit 1
+                    fi
+                fi
+            fi
+        else
+            log_message "ERROR: Directory exists but is not a Git repository: ${REPO_PATH}"
+            read -p "Remove it and clone fresh? (y/n): " -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log_message "Aborting initialization."
+                exit 1
+            fi
         fi
         
-        git_clone_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${PROJECT_DIR}" 2>&1)
-    else
-        git_clone_output=$(${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${PROJECT_DIR}" 2>&1)
+        log_message "Removing existing directory..."
+        cd .. || {
+            log_message "ERROR: Failed to change to parent directory."
+            exit 1
+        }
+        rm -rf "${REPO_PATH}"
+        log_message "Directory removed."
     fi
-    git_clone_status=$?
-    
-    if [ ${git_clone_status} -ne 0 ]; then
-        log_message "ERROR: Failed to clone repository. Output: ${git_clone_output}"
-        exit 1
-    fi
-    
-    log_message "Repository cloned successfully to ${PROJECT_DIR}."
 fi
+
+# Create parent directory if needed
+PARENT_DIR=$(dirname "${REPO_PATH}")
+if [ ! -d "${PARENT_DIR}" ]; then
+    log_message "Creating parent directory: ${PARENT_DIR}"
+    mkdir -p "${PARENT_DIR}" || {
+        log_message "ERROR: Failed to create parent directory."
+        exit 1
+    }
+fi
+
+# Ensure PROJECT_DIR parent directories exist
+PROJECT_PARENT_DIR=$(dirname "${PROJECT_DIR}")
+if [ ! -d "${PROJECT_PARENT_DIR}" ] && [ "${PROJECT_PARENT_DIR}" != "${REPO_PATH}" ]; then
+    log_message "Creating project parent directory: ${PROJECT_PARENT_DIR}"
+    mkdir -p "${PROJECT_PARENT_DIR}" || {
+        log_message "ERROR: Failed to create project parent directory. Exiting."
+        exit 1
+    }
+fi
+
+# Use BUILD_USER if specified
+if [ -n "${BUILD_USER}" ]; then
+    log_message "Cloning as user: ${BUILD_USER}"
+    # Ensure the parent directory has proper permissions for BUILD_USER
+    if [ -d "${PARENT_DIR}" ]; then
+        log_message "Setting permissions on parent directory for ${BUILD_USER}..."
+        ${DOAS_CMD} chown "${BUILD_USER}" "${PARENT_DIR}"
+    fi
+    
+    git_clone_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${REPO_PATH}" 2>&1)
+else
+    git_clone_output=$(${GIT_CMD} clone -b "${GIT_BRANCH}" "${GIT_REPO_URL}" "${REPO_PATH}" 2>&1)
+fi
+git_clone_status=$?
+
+if [ ${git_clone_status} -ne 0 ]; then
+    log_message "ERROR: Failed to clone repository. Output: ${git_clone_output}"
+    exit 1
+fi
+
+log_message "Repository cloned successfully to ${REPO_PATH}."
 
 # --- Step 2: Build the Go application ---
 log_message "Step 2: Building Go application..."
@@ -164,6 +170,7 @@ cd "${PROJECT_DIR}" || {
     log_message "ERROR: Failed to change to project directory ${PROJECT_DIR}."
     exit 1
 }
+log_message "Changed to project directory: ${PROJECT_DIR}"
 
 # Create a temporary file for the build output
 TMP_BUILD_FILE="${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp"
@@ -324,7 +331,8 @@ fi
 # --- Summary ---
 log_message "\n=== Initialization Complete ==="
 log_message "Summary:"
-log_message "- Repository cloned to: ${PROJECT_DIR}"
+log_message "- Repository cloned to: ${REPO_PATH}"
+log_message "- Go application built from: ${PROJECT_DIR}"
 log_message "- Executable installed at: ${GO_EXECUTABLE_DEST}"
 log_message "- Service name: ${RC_SERVICE_NAME}"
 log_message "- Service status: Running"
