@@ -78,7 +78,7 @@ The `config.sh` file is ignored by Git, so your local settings won't be overwrit
 
 3. **Make the Scripts Executable**:
    ```bash
-   chmod +x update_go_server.sh generate_sudo_permissions.sh initialize_go_server_ubuntu.sh create_users_ubuntu.sh
+   chmod +x update_go_server_ubuntu.sh generate_sudo_permissions.sh initialize_go_server_ubuntu.sh create_users_ubuntu.sh
    ```
 
 ### 2. User Setup (Optional)
