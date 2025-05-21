@@ -175,12 +175,44 @@ log_message "Changed to project directory: ${PROJECT_DIR}"
 # Create a temporary file for the build output
 TMP_BUILD_FILE="${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp"
 
-# Build the Go application
+# Set up Go cache directories if BUILD_USER is specified
 if [ -n "${BUILD_USER}" ]; then
-    log_message "Building as user: ${BUILD_USER}"
-    build_output=$(${DOAS_CMD} -u "${BUILD_USER}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    # Create GOCACHE directory in the project directory
+    GOCACHE_DIR="${PROJECT_DIR}/.gocache"
+    log_message "Setting up GOCACHE directory: ${GOCACHE_DIR}"
+    mkdir -p "${GOCACHE_DIR}" || {
+        log_message "ERROR: Failed to create GOCACHE directory."
+        exit 1
+    }
+    
+    # Create GOMODCACHE directory in the project directory
+    GOMODCACHE_DIR="${PROJECT_DIR}/.gomodcache"
+    log_message "Setting up GOMODCACHE directory: ${GOMODCACHE_DIR}"
+    mkdir -p "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to create GOMODCACHE directory."
+        exit 1
+    }
+    
+    # Set proper ownership
+    ${DOAS_CMD} chown -R "${BUILD_USER}:${BUILD_USER}" "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set ownership on Go cache directories."
+        exit 1
+    }
+    
+    # Set proper permissions
+    ${DOAS_CMD} chmod -R 755 "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set permissions on Go cache directories."
+        exit 1
+    }
+    
+    log_message "Go cache directories set up successfully."
+    
+    # Build the Go application with custom cache directories
+    log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
+    build_output=$(${DOAS_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 else
+    log_message "Building as current user"
     build_output=$(${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 fi

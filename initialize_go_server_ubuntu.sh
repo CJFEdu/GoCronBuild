@@ -180,12 +180,44 @@ if [ $? -ne 0 ]; then
 fi
 log_message "Building to temporary file: ${TMP_BUILD_FILE}"
 
-# Build the Go application
+# Set up Go cache directories if BUILD_USER is specified
 if [ -n "${BUILD_USER}" ]; then
-    log_message "Building as user: ${BUILD_USER}"
-    build_output=$(${SUDO_CMD} -u "${BUILD_USER}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    # Create GOCACHE directory in the project directory
+    GOCACHE_DIR="${PROJECT_DIR}/.gocache"
+    log_message "Setting up GOCACHE directory: ${GOCACHE_DIR}"
+    mkdir -p "${GOCACHE_DIR}" || {
+        log_message "ERROR: Failed to create GOCACHE directory."
+        exit 1
+    }
+    
+    # Create GOMODCACHE directory in the project directory
+    GOMODCACHE_DIR="${PROJECT_DIR}/.gomodcache"
+    log_message "Setting up GOMODCACHE directory: ${GOMODCACHE_DIR}"
+    mkdir -p "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to create GOMODCACHE directory."
+        exit 1
+    }
+    
+    # Set proper ownership
+    ${SUDO_CMD} chown -R "${BUILD_USER}:${BUILD_USER}" "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set ownership on Go cache directories."
+        exit 1
+    }
+    
+    # Set proper permissions
+    ${SUDO_CMD} chmod -R 755 "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set permissions on Go cache directories."
+        exit 1
+    }
+    
+    log_message "Go cache directories set up successfully."
+    
+    # Build the Go application with custom cache directories
+    log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
+    build_output=$(${SUDO_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 else
+    # Build the Go application normally
     build_output=$(${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 fi
