@@ -245,7 +245,6 @@ if [ -n "${BUILD_USER}" ]; then
     
     setup_project_permissions "${BUILD_USER}"
     setup_build_user "${BUILD_USER}"
-fi
 else
     echo "\nBUILD_USER not specified in config.sh. Skipping."
 fi
