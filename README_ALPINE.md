@@ -223,9 +223,15 @@ The script includes fallback mechanisms for public repositories, allowing it to 
 
 Run the script manually to test its functionality and check the log output:
 ```bash
+# Normal execution - only updates if Git changes are detected
 ./update_go_server_alpine.sh
+
+# Force rebuild and service restart even if no Git changes are detected
+./update_go_server_alpine.sh --force
 ```
 Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-MM-DD.log`) for detailed output.
+
+The `--force` option is useful in scenarios where you need to rebuild and restart the service without code changes, such as after modifying configuration files or when troubleshooting service issues.
 
 ## Setting up as a Cron Job
 
