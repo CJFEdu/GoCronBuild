@@ -89,7 +89,7 @@ add_line ""
 add_line "# Allow creating and writing to log directory"
 add_line "${CURRENT_USER} ALL=(root) NOPASSWD: /bin/mkdir -p ${LOG_DIR}"
 add_line "${CURRENT_USER} ALL=(root) NOPASSWD: /bin/chmod -R 755 ${LOG_DIR}"
-add_line "${CURRENT_USER} ALL=(root) NOPASSWD: /bin/chown -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
+add_line "${CURRENT_USER} ALL=(root) NOPASSWD: /bin/chown -R ${CURRENT_USER}\:${CURRENT_USER} ${LOG_DIR}"
 add_line ""
 
 # If BUILD_USER is set, add permissions for it
@@ -128,7 +128,7 @@ add_line ""
 add_line "# Allow creating and writing to log directory"
 add_line "${CURRENT_USER} ALL=(root) /bin/mkdir -p ${LOG_DIR}"
 add_line "${CURRENT_USER} ALL=(root) /bin/chmod -R 755 ${LOG_DIR}"
-add_line "${CURRENT_USER} ALL=(root) /bin/chown -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
+add_line "${CURRENT_USER} ALL=(root) /bin/chown -R ${CURRENT_USER}\:${CURRENT_USER} ${LOG_DIR}"
 add_line ""
 
 # If BUILD_USER is set, add permissions for it

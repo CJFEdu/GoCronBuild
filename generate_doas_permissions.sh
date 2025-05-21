@@ -86,7 +86,11 @@ add_line ""
 add_line "# Allow creating and writing to log directory"
 add_line "permit nopass ${CURRENT_USER} as root cmd /bin/mkdir args -p ${LOG_DIR}"
 add_line "permit nopass ${CURRENT_USER} as root cmd /bin/chmod args -R 755 ${LOG_DIR}"
-add_line "permit nopass ${CURRENT_USER} as root cmd /bin/chown args -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
+# For doas, we need to handle the user:group differently
+# We'll use a variable to store the user:group string to avoid syntax issues
+add_line "# Define user:group string for chown"
+add_line "USER_GROUP_STRING=\"${CURRENT_USER}:${CURRENT_USER}\""
+add_line "permit nopass ${CURRENT_USER} as root cmd /bin/chown args -R \$USER_GROUP_STRING ${LOG_DIR}"
 add_line ""
 
 # If BUILD_USER is set, add permissions for it
@@ -125,7 +129,7 @@ add_line ""
 add_line "# Allow creating and writing to log directory"
 add_line "permit ${CURRENT_USER} as root cmd /bin/mkdir args -p ${LOG_DIR}"
 add_line "permit ${CURRENT_USER} as root cmd /bin/chmod args -R 755 ${LOG_DIR}"
-add_line "permit ${CURRENT_USER} as root cmd /bin/chown args -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
+add_line "permit ${CURRENT_USER} as root cmd /bin/chown args -R \$USER_GROUP_STRING ${LOG_DIR}"
 add_line ""
 
 # If BUILD_USER is set, add permissions for it
