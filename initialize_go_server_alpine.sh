@@ -186,11 +186,12 @@ if [ -n "${BUILD_USER}" ]; then
         log_message "ERROR: Failed to set ownership on temporary build directory."
         exit 1
     }
+    
     ${DOAS_CMD} chmod -R 755 "${TMP_BUILD_DIR}" || {
         log_message "ERROR: Failed to set permissions on temporary build directory."
         exit 1
     }
-}
+fi
 
 # Create a temporary build file
 TMP_BUILD_FILE="${TMP_BUILD_DIR}/${GO_EXECUTABLE_NAME}.tmp"
