@@ -26,7 +26,10 @@ SERVICE_DESCRIPTION="${PROJECT_NAME} Service"
 SERVICE_WORKING_DIR=""
 
 # Full path to your Go project's Git repository
-PROJECT_DIR="/path/to/your/go/project"
+REPO_PATH="/path/to/your/go/project"
+
+# Full path to your Go project's source code
+PROJECT_DIR="${REPO_PATH}/src"
 
 # The name of your Go application's main executable after building
 # (e.g., if your main.go produces 'mygoserver', set this to 'mygoserver')
