@@ -42,7 +42,7 @@ SERVICE_NAME="${PROJECT_NAME}-service"
 RC_SERVICE_NAME="${SERVICE_NAME}"
 
 # Directory for all log files of this script
-LOG_DIR="/var/log/${PROJECT_NAME}"
+LOG_DIR="/var/log/${PROJECT_NAME}_updater"
 LOG_BASE_NAME="${PROJECT_NAME}-logs" # Base name for log files
 
 # User to run git and go build commands as (if different from cron user)
