@@ -172,8 +172,29 @@ cd "${PROJECT_DIR}" || {
 }
 log_message "Changed to project directory: ${PROJECT_DIR}"
 
-# Create a temporary file for the build output
-TMP_BUILD_FILE="${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp"
+# Create a temporary build directory within the project directory
+TMP_BUILD_DIR="${PROJECT_DIR}/tmp"
+log_message "Creating temporary build directory: ${TMP_BUILD_DIR}"
+mkdir -p "${TMP_BUILD_DIR}" || {
+    log_message "ERROR: Could not create temporary build directory. Exiting."
+    exit 1
+}
+
+# Set proper permissions on the temporary directory
+if [ -n "${BUILD_USER}" ]; then
+    ${DOAS_CMD} chown -R "${BUILD_USER}:${BUILD_USER}" "${TMP_BUILD_DIR}" || {
+        log_message "ERROR: Failed to set ownership on temporary build directory."
+        exit 1
+    }
+    ${DOAS_CMD} chmod -R 755 "${TMP_BUILD_DIR}" || {
+        log_message "ERROR: Failed to set permissions on temporary build directory."
+        exit 1
+    }
+}
+
+# Create a temporary build file
+TMP_BUILD_FILE="${TMP_BUILD_DIR}/${GO_EXECUTABLE_NAME}.tmp"
+log_message "Using temporary build file: ${TMP_BUILD_FILE}"
 
 # Set up Go cache directories if BUILD_USER is specified
 if [ -n "${BUILD_USER}" ]; then
