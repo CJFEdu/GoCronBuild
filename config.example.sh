@@ -53,6 +53,7 @@ LOG_BASE_NAME="${PROJECT_NAME}-logs" # Base name for log files
 # If set, script will attempt to use 'sudo -u ${BUILD_USER}' for git and go commands.
 # This user needs write access to PROJECT_DIR and GOCACHE, GOPATH if applicable.
 BUILD_USER="${PROJECT_NAME}_builder" # e.g., "yourgouser"
+BUILD_GROUP="${PROJECT_NAME}_group" # e.g., "yourgouser"
 
 # Git command (use absolute path if not in cron's default PATH)
 GIT_CMD="/usr/bin/git" # Adjust if your git path is different

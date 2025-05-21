@@ -24,6 +24,31 @@ else
     exit 1
 fi
 
+# Create BUILD_GROUP if it doesn't exist
+create_group_if_needed() {
+    local groupname=$1
+    
+    if [ -z "$groupname" ]; then
+        echo "Skipping group creation: Group name is empty"
+        return 0
+    fi
+    
+    # Check if group already exists
+    if getent group "$groupname" &>/dev/null; then
+        echo "Group '$groupname' already exists. Skipping creation."
+    else
+        echo "Creating group '$groupname'..."
+        groupadd "$groupname"
+        
+        if [ $? -eq 0 ]; then
+            echo "Group '$groupname' created successfully."
+        else
+            echo "Failed to create group '$groupname'."
+            exit 1
+        fi
+    fi
+}
+
 # Function to create a user if it doesn't exist
 create_user_if_needed() {
     local username=$1
@@ -91,8 +116,12 @@ setup_project_permissions() {
         fi
     fi
     
-    # Set ownership
-    chown -R "$username:$username" "${PROJECT_DIR}"
+    # Set ownership - use BUILD_GROUP if specified, otherwise use username as group
+    if [ -n "${BUILD_GROUP}" ]; then
+        chown -R "$username:${BUILD_GROUP}" "${PROJECT_DIR}"
+    else
+        chown -R "$username:$username" "${PROJECT_DIR}"
+    fi
     if [ $? -ne 0 ]; then
         echo "Failed to set ownership on project directory."
         exit 1
@@ -191,12 +220,32 @@ setup_build_user() {
 # Main execution
 echo "=== GoCronBuild User Setup for Ubuntu ==="
 
+# Create BUILD_GROUP if specified
+if [ -n "${BUILD_GROUP}" ]; then
+    echo "Setting up BUILD_GROUP: ${BUILD_GROUP}"
+    create_group_if_needed "${BUILD_GROUP}"
+fi
+
 # Create BUILD_USER if specified
 if [ -n "${BUILD_USER}" ]; then
     echo "\nSetting up BUILD_USER: ${BUILD_USER}"
     create_user_if_needed "${BUILD_USER}" "no" "yes"
-    setup_build_user "${BUILD_USER}"
+    
+    # Add BUILD_USER to BUILD_GROUP if both are specified
+    if [ -n "${BUILD_GROUP}" ]; then
+        echo "Adding ${BUILD_USER} to group ${BUILD_GROUP}"
+        usermod -a -G "${BUILD_GROUP}" "${BUILD_USER}"
+        if [ $? -eq 0 ]; then
+            echo "Added ${BUILD_USER} to group ${BUILD_GROUP} successfully."
+        else
+            echo "Failed to add ${BUILD_USER} to group ${BUILD_GROUP}."
+            exit 1
+        fi
+    fi
+    
     setup_project_permissions "${BUILD_USER}"
+    setup_build_user "${BUILD_USER}"
+fi
 else
     echo "\nBUILD_USER not specified in config.sh. Skipping."
 fi
@@ -205,6 +254,19 @@ fi
 if [ -n "${SERVICE_USER}" ] && [ "${SERVICE_USER}" != "${BUILD_USER}" ]; then
     echo "\nSetting up SERVICE_USER: ${SERVICE_USER}"
     create_user_if_needed "${SERVICE_USER}" "no" "yes"
+    
+    # Add SERVICE_USER to BUILD_GROUP if both are specified
+    if [ -n "${BUILD_GROUP}" ]; then
+        echo "Adding ${SERVICE_USER} to group ${BUILD_GROUP}"
+        usermod -a -G "${BUILD_GROUP}" "${SERVICE_USER}"
+        if [ $? -eq 0 ]; then
+            echo "Added ${SERVICE_USER} to group ${BUILD_GROUP} successfully."
+        else
+            echo "Failed to add ${SERVICE_USER} to group ${BUILD_GROUP}."
+            exit 1
+        fi
+    fi
+    
     setup_service_user "${SERVICE_USER}"
 else
     if [ -n "${SERVICE_USER}" ]; then

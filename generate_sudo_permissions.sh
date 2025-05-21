@@ -34,6 +34,34 @@ add_line "# WARNING: Always use 'visudo' to edit sudoers files to avoid syntax e
 add_line "# that could lock you out of the system."
 add_line ""
 
+# Add current user to BUILD_GROUP if it exists
+if [ -n "${BUILD_GROUP}" ]; then
+    echo "Checking if current user ${CURRENT_USER} is in group ${BUILD_GROUP}..."
+    if groups ${CURRENT_USER} | grep -q "\b${BUILD_GROUP}\b"; then
+        echo "User ${CURRENT_USER} is already in group ${BUILD_GROUP}."
+    else
+        echo "Adding user ${CURRENT_USER} to group ${BUILD_GROUP}..."
+        sudo usermod -a -G "${BUILD_GROUP}" "${CURRENT_USER}"
+        if [ $? -eq 0 ]; then
+            echo "Successfully added ${CURRENT_USER} to group ${BUILD_GROUP}."
+            echo "NOTE: You will need to log out and log back in for the group changes to take effect."
+            
+            # Add a comment to the output file
+            add_line "# NOTE: User ${CURRENT_USER} has been added to the ${BUILD_GROUP} group"
+            add_line "# You will need to log out and log back in for the group changes to take effect"
+            add_line ""
+        else
+            echo "Failed to add ${CURRENT_USER} to group ${BUILD_GROUP}."
+            echo "You may need to run this script with sudo privileges."
+            
+            # Add a comment to the output file
+            add_line "# WARNING: Failed to add ${CURRENT_USER} to the ${BUILD_GROUP} group"
+            add_line "# Run: sudo usermod -a -G ${BUILD_GROUP} ${CURRENT_USER}"
+            add_line ""
+        fi
+    fi
+fi
+
 # Add entries for cron user
 add_line "# === Entries for cron/automated execution ==="
 add_line "# These entries allow the script to run without password prompts"
