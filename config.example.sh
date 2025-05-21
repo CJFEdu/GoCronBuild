@@ -3,6 +3,11 @@
 # --- Configuration ---
 # !!! IMPORTANT: Copy this file to config.sh and set these variables to match your environment !!!
 
+
+# --- Project Name ---
+# Only used in this config to expedite filling out the rest of the variables
+PROJECT_NAME="yourproject"
+
 # --- Repository Configuration ---
 # Git repository URL to clone (required for initialize_go_server.sh)
 GIT_REPO_URL="https://github.com/yourusername/yourrepo.git"
@@ -15,7 +20,7 @@ GIT_BRANCH="main"
 SERVICE_USER="$(whoami)"
 
 # Description for the systemd service (required for initialize_go_server.sh)
-SERVICE_DESCRIPTION="Go Application Service"
+SERVICE_DESCRIPTION="${PROJECT_NAME} Service"
 
 # Working directory for the service (defaults to PROJECT_DIR if not set)
 SERVICE_WORKING_DIR=""
@@ -25,7 +30,7 @@ PROJECT_DIR="/path/to/your/go/project"
 
 # The name of your Go application's main executable after building
 # (e.g., if your main.go produces 'mygoserver', set this to 'mygoserver')
-GO_EXECUTABLE_NAME="yourgoserver"
+GO_EXECUTABLE_NAME="${PROJECT_NAME}-server"
 
 # The full path where the compiled Go executable should be placed
 # This is the path that your rc-service init script's 'command' variable points to.
@@ -33,18 +38,18 @@ GO_EXECUTABLE_NAME="yourgoserver"
 GO_EXECUTABLE_DEST="/usr/local/bin/${GO_EXECUTABLE_NAME}"
 
 # The name of your rc-service
-SERVICE_NAME="mygoserver"
+SERVICE_NAME="${PROJECT_NAME}-service"
 RC_SERVICE_NAME="${SERVICE_NAME}"
 
 # Directory for all log files of this script
-LOG_DIR="/var/log/go_project_updater"
-LOG_BASE_NAME="go_project_updater" # Base name for log files
+LOG_DIR="/var/log/${PROJECT_NAME}"
+LOG_BASE_NAME="${PROJECT_NAME}-logs" # Base name for log files
 
 # User to run git and go build commands as (if different from cron user)
 # Leave empty if the cron user has direct permissions.
 # If set, script will attempt to use 'sudo -u ${BUILD_USER}' for git and go commands.
 # This user needs write access to PROJECT_DIR and GOCACHE, GOPATH if applicable.
-BUILD_USER="" # e.g., "yourgouser"
+BUILD_USER="${PROJECT_NAME}_builder" # e.g., "yourgouser"
 
 # Git command (use absolute path if not in cron's default PATH)
 GIT_CMD="/usr/bin/git" # Adjust if your git path is different
