@@ -14,9 +14,24 @@ else
     exit 1
 fi
 
-# --- Script Logic ---
+# Parse command line arguments
+FORCE_REBUILD=false
+for arg in "$@"; do
+    case $arg in
+        --force)
+            FORCE_REBUILD=true
+            ;;
+        *)
+            echo "Unknown option: $arg"
+            echo "Usage: $0 [--force]"
+            echo "  --force: Force rebuild and service restart even if no Git changes are detected"
+            exit 1
+            ;;
+    esac
+done
 
-CURRENT_DATE=$(date '+%Y-%m-%d')
+# Get the current date for log file naming
+CURRENT_DATE=$(date +"%Y-%m-%d")
 LOG_FILE="${LOG_DIR}/${LOG_BASE_NAME}_${CURRENT_DATE}.log"
 CURRENT_BACKUP_FILE="" # Variable to store the name of the backup made in this run
 
@@ -261,9 +276,12 @@ if [ "${current_commit_before_pull}" == "${current_commit_after_pull}" ]; then
     fi
 fi
 
-if [ "${rebuild_needed}" = false ]; then
-    log_message "--- Script finished successfully (no changes) ---"
+if [ "${rebuild_needed}" = false ] && [ "${FORCE_REBUILD}" = false ]; then
+    log_message "--- Script finished successfully (no changes and --force not specified) ---"
     exit 0
+elif [ "${rebuild_needed}" = false ] && [ "${FORCE_REBUILD}" = true ]; then
+    log_message "No changes detected but --force specified. Proceeding with rebuild anyway."
+    rebuild_needed=true
 fi
 
 log_message "Changes detected or rebuild forced. Proceeding with rebuild."

@@ -14,9 +14,26 @@ else
     exit 1
 fi
 
+# Parse command line arguments
+FORCE_REBUILD=false
+for arg in "$@"; do
+    case $arg in
+        --force)
+            FORCE_REBUILD=true
+            ;;
+        *)
+            echo "Unknown option: $arg"
+            echo "Usage: $0 [--force]"
+            echo "  --force: Force rebuild and service restart even if no Git changes are detected"
+            exit 1
+            ;;
+    esac
+done
+
 # --- Script Logic ---
 
-CURRENT_DATE=$(date '+%Y-%m-%d')
+# Get the current date for log file naming
+CURRENT_DATE=$(date +"%Y-%m-%d")
 LOG_FILE="${LOG_DIR}/${LOG_BASE_NAME}_${CURRENT_DATE}.log"
 CURRENT_BACKUP_FILE="" # Variable to store the name of the backup made in this run
 
@@ -240,12 +257,14 @@ if [ "${old_commit}" = "${new_commit}" ] && [[ "${git_pull_output}" != *"Already
     log_message "WARNING: Commit hash unchanged but git pull did not report 'Already up to date'."
     log_message "This could indicate a non-fast-forward update or other git operation."
     log_message "Proceeding with build to be safe."
-elif [ "${old_commit}" = "${new_commit}" ]; then
-    log_message "No changes detected. Exiting."
+elif [ "${old_commit}" = "${new_commit}" ] && [ "${FORCE_REBUILD}" = false ]; then
+    log_message "No changes detected and --force not specified. Exiting."
     exit 0
+elif [ "${old_commit}" = "${new_commit}" ] && [ "${FORCE_REBUILD}" = true ]; then
+    log_message "No changes detected but --force specified. Proceeding with build anyway."
+else
+    log_message "Changes detected. Proceeding with build."
 fi
-
-log_message "Changes detected. Proceeding with build."
 
 # --- Change to the project directory for building ---
 if [ "${REPO_PATH}" != "${PROJECT_DIR}" ]; then
