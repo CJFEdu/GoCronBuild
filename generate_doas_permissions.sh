@@ -82,6 +82,13 @@ add_line "# Allow deleting backup executables"
 add_line "permit nopass ${CURRENT_USER} as root cmd /usr/bin/rm args ${GO_EXECUTABLE_DEST}.bak_*"
 add_line ""
 
+# Add permissions for log directory
+add_line "# Allow creating and writing to log directory"
+add_line "permit nopass ${CURRENT_USER} as root cmd /bin/mkdir args -p ${LOG_DIR}"
+add_line "permit nopass ${CURRENT_USER} as root cmd /bin/chmod args -R 755 ${LOG_DIR}"
+add_line "permit nopass ${CURRENT_USER} as root cmd /bin/chown args -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
+add_line ""
+
 # If BUILD_USER is set, add permissions for it
 if [ -n "${BUILD_USER}" ]; then
     add_line "# Allow running git and go commands as ${BUILD_USER}"
@@ -112,6 +119,13 @@ add_line ""
 
 add_line "# Allow deleting backup executables"
 add_line "permit ${CURRENT_USER} as root cmd /usr/bin/rm args ${GO_EXECUTABLE_DEST}.bak_*"
+add_line ""
+
+# Add permissions for log directory (with password)
+add_line "# Allow creating and writing to log directory"
+add_line "permit ${CURRENT_USER} as root cmd /bin/mkdir args -p ${LOG_DIR}"
+add_line "permit ${CURRENT_USER} as root cmd /bin/chmod args -R 755 ${LOG_DIR}"
+add_line "permit ${CURRENT_USER} as root cmd /bin/chown args -R ${CURRENT_USER}:${CURRENT_USER} ${LOG_DIR}"
 add_line ""
 
 # If BUILD_USER is set, add permissions for it
