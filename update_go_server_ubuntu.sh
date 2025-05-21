@@ -311,8 +311,8 @@ if [ -n "${BUILD_USER}" ]; then
     log_message "Set GOCACHE=${GOCACHE} and GOMODCACHE=${GOMODCACHE}"
     
     # Try with sudo first
-    log_message "Building as user: ${BUILD_USER}"
-    build_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+    log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
+    build_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
     
     # If sudo fails with authentication error, try direct build
