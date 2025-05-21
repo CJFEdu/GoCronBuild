@@ -114,7 +114,7 @@ Create a dedicated sudoers file and add the entries:
 
 ```bash
 # Review the generated entries first
-cat sudoers.txt
+nano sudoers.txt
 
 # Create a dedicated sudoers file (this will open an editor)
 sudo visudo -f /etc/sudoers.d/gocronbuild
@@ -226,7 +226,7 @@ The script includes fallback mechanisms for public repositories, allowing it to 
 
 Run the script manually to test its functionality and check the log output:
 ```bash
-./update_go_server.sh
+./update_go_server_ubuntu.sh
 ```
 Check the log file (e.g., `/var/log/go_project_updater/go_project_updater_YYYY-MM-DD.log`) for detailed output.
 
