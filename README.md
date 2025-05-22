@@ -2,8 +2,6 @@
 
 This shell script automates the process of updating a Go application deployed on Ubuntu systems. It is designed to run as a cron job to periodically check for updates in a Git repository, rebuild the Go application if changes are found, and then restart the corresponding systemd service.
 
-**Note:** This script is specifically designed for Ubuntu systems. For the Alpine Linux version, please see the README_ALPINE.md file.
-
 ## Features
 
 * **Git Integration**: Pulls the latest changes from a specified Git repository.
