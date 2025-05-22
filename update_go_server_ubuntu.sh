@@ -154,8 +154,12 @@ attempt_direct_pull() {
 # Get the current commit hash before pull
 if [ -n "${BUILD_USER}" ]; then
     log_message "Getting current commit hash as user: ${BUILD_USER}"
+    log_message "Debug: SUDO_CMD=${SUDO_CMD}, BUILD_USER=${BUILD_USER}, GIT_CMD=${GIT_CMD}"
+    log_message "Debug: Full command: ${SUDO_CMD} -n -u \"${BUILD_USER}\" ${GIT_CMD} rev-parse HEAD"
     old_commit_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} rev-parse HEAD 2>&1)
     old_commit_status=$?
+    log_message "Debug: Command exit status: ${old_commit_status}"
+    log_message "Debug: Command output: ${old_commit_output}"
     
     # Handle dubious ownership error if it occurs
     if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"dubious ownership"* ]]; then
