@@ -144,12 +144,7 @@ handle_dubious_ownership() {
     return 1 # Failed to extract repo path
 }
 
-# Function to attempt git pull without sudo
-attempt_direct_pull() {
-    log_message "Attempting direct git pull without sudo..."
-    ${GIT_CMD} pull 2>&1
-    return $?
-}
+
 
 # Get the current commit hash before pull
 if [ -n "${BUILD_USER}" ]; then
@@ -214,16 +209,7 @@ if [ -n "${BUILD_USER}" ]; then
             if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
                 log_message "Debug: First git pull retry approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
                 git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
-                git_pull_status=$?
-            fi
         fi
-    fi
-    
-    # If sudo fails with authentication error and this is likely a public repo, try direct pull
-    if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"sudo: a password is required"* ]]; then
-        log_message "sudo authentication required. Trying direct git pull as this might be a public repository..."
-        git_pull_output=$(attempt_direct_pull)
-        git_pull_status=$?
     fi
 else
     # Direct pull if no BUILD_USER
@@ -251,12 +237,6 @@ log_message "Git pull output: ${git_pull_output}"
 if [ -n "${BUILD_USER}" ]; then
     new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     new_commit_status=$?
-    
-    if [ ${new_commit_status} -ne 0 ] && [[ "${new_commit_output}" == *"a password is required"* ]]; then
-        log_message "Debug: First new commit hash approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
-        new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
-        new_commit_status=$?
-    fi
 else
     new_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
     new_commit_status=$?
@@ -349,20 +329,7 @@ fi
 
 log_message "Build successful."
 
-# Function to attempt direct file operations without sudo
-attempt_direct_file_op() {
-    local op=$1 # "mv" or "rm"
-    local src=$2
-    local dest=$3 # Only for mv
-    
-    log_message "Attempting direct ${op} without sudo: ${src} to ${dest}..."
-    if [ "${op}" = "mv" ]; then
-        mv "${src}" "${dest}" 2>&1
-    elif [ "${op}" = "rm" ]; then
-        rm -f "${src}" 2>&1
-    fi
-    return $?
-}
+
 
 # Create a backup of the current executable
 if [ -f "${GO_EXECUTABLE_DEST}" ]; then
@@ -374,12 +341,7 @@ if [ -f "${GO_EXECUTABLE_DEST}" ]; then
     mv_backup_output=$(${SUDO_CMD} -n mv "${GO_EXECUTABLE_DEST}" "${BACKUP_FILE}" 2>&1)
     mv_backup_status=$?
     
-    # If sudo fails with authentication error, try direct mv
-    if [ ${mv_backup_status} -ne 0 ] && [[ "${mv_backup_output}" == *"sudo: a password is required"* ]]; then
-        log_message "sudo authentication required. Trying direct mv for backup..."
-        mv_backup_output=$(attempt_direct_file_op "mv" "${GO_EXECUTABLE_DEST}" "${BACKUP_FILE}")
-        mv_backup_status=$?
-    fi
+
     
     if [ ${mv_backup_status} -ne 0 ]; then
         log_message "ERROR: Failed to create backup of current executable. Output: ${mv_backup_output}"
@@ -398,13 +360,6 @@ log_message "Moving new executable to ${GO_EXECUTABLE_DEST}..."
 mv_new_output=$(${SUDO_CMD} -n mv "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" "${GO_EXECUTABLE_DEST}" 2>&1)
 mv_new_status=$?
 
-# If sudo fails with authentication error, try direct mv
-if [ ${mv_new_status} -ne 0 ] && [[ "${mv_new_output}" == *"sudo: a password is required"* ]]; then
-    log_message "sudo authentication required. Trying direct mv for new executable..."
-    mv_new_output=$(attempt_direct_file_op "mv" "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" "${GO_EXECUTABLE_DEST}")
-    mv_new_status=$?
-fi
-
 if [ ${mv_new_status} -ne 0 ]; then
     log_message "ERROR: Failed to move new executable to destination. Output: ${mv_new_output}"
     
@@ -413,13 +368,6 @@ if [ ${mv_new_status} -ne 0 ]; then
         log_message "Attempting to restore backup from ${CURRENT_BACKUP_FILE}..."
         restore_output=$(${SUDO_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         restore_status=$?
-        
-        # If sudo fails with authentication error, try direct mv
-        if [ ${restore_status} -ne 0 ] && [[ "${restore_output}" == *"sudo: a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct mv for restore..."
-            restore_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
-            restore_status=$?
-        fi
         
         if [ ${restore_status} -eq 0 ]; then
             log_message "Successfully restored backup."
@@ -433,24 +381,14 @@ fi
 
 log_message "New executable moved to destination successfully."
 
-# Function to attempt direct service restart without sudo
-attempt_direct_service_restart() {
-    log_message "Attempting direct service restart without sudo..."
-    systemctl restart "${RC_SERVICE_NAME}" 2>&1
-    return $?
-}
+
 
 # Restart the systemd service
 log_message "Attempting to restart systemd service ${RC_SERVICE_NAME}..."
 restart_output=$(${SUDO_CMD} -n systemctl restart "${RC_SERVICE_NAME}" 2>&1)
 restart_status=$?
 
-# If sudo fails with authentication error, try direct restart
-if [ ${restart_status} -ne 0 ] && [[ "${restart_output}" == *"sudo: a password is required"* ]]; then
-    log_message "sudo authentication required. Trying direct service restart..."
-    restart_output=$(attempt_direct_service_restart)
-    restart_status=$?
-fi
+
 
 if [ ${restart_status} -ne 0 ]; then
     log_message "ERROR: Failed to restart systemd service ${RC_SERVICE_NAME} with status ${restart_status}."
@@ -461,13 +399,6 @@ if [ ${restart_status} -ne 0 ]; then
         log_message "Rolling back to backup from ${CURRENT_BACKUP_FILE}..."
         rollback_output=$(${SUDO_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         rollback_status=$?
-        
-        # If sudo fails with authentication error, try direct mv
-        if [ ${rollback_status} -ne 0 ] && [[ "${rollback_output}" == *"sudo: a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct mv for rollback..."
-            rollback_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
-            rollback_status=$?
-        fi
         
         if [ ${rollback_status} -eq 0 ]; then
             log_message "Successfully rolled back to previous executable."
@@ -498,13 +429,6 @@ else
         log_message "Deleting backup file from this run: ${CURRENT_BACKUP_FILE}"
         delete_backup_output=$(${SUDO_CMD} -n rm -f "${CURRENT_BACKUP_FILE}" 2>&1)
         delete_backup_status=$?
-        
-        # If sudo fails with authentication error, try direct rm
-        if [ ${delete_backup_status} -ne 0 ] && [[ "${delete_backup_output}" == *"sudo: a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct rm for backup file..."
-            delete_backup_output=$(attempt_direct_file_op "rm" "${CURRENT_BACKUP_FILE}" "")
-            delete_backup_status=$?
-        fi
         
         if [ ${delete_backup_status} -eq 0 ]; then
             log_message "Successfully deleted backup file ${CURRENT_BACKUP_FILE}."

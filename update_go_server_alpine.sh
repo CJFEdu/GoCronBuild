@@ -171,47 +171,39 @@ fi
 
 # Pull latest changes from the repository
 log_message "Attempting to pull latest changes from Git repository..."
-git_pull_output=""
-
-# Function to attempt git pull without doas
-attempt_direct_pull() {
-    log_message "Attempting direct git pull without doas..."
-    git_pull_output=$(${GIT_CMD} pull 2>&1)
-    pull_status=$?
+git_pull_output=$(${GIT_CMD} pull 2>&1)
+pull_status=$?
     
-    # Check for dubious ownership error
-    if [ ${pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"detected dubious ownership"* ]]; then
-        log_message "Git dubious ownership error detected during pull"
-        if handle_git_dubious_ownership "${git_pull_output}"; then
-            # Try again after fixing the ownership issue
-            log_message "Retrying pull after fixing ownership issue"
-            git_pull_output=$(${GIT_CMD} pull 2>&1)
-            pull_status=$?
+# Check for dubious ownership error
+if [ ${pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"detected dubious ownership"* ]]; then
+    log_message "Git dubious ownership error detected during pull"
+    if handle_git_dubious_ownership "${git_pull_output}"; then
+        # Try again after fixing the ownership issue
+        log_message "Retrying pull after fixing ownership issue"
+        git_pull_output=$(${GIT_CMD} pull 2>&1)
+        pull_status=$?
+        
+        if [ ${pull_status} -ne 0 ]; then
+            log_message "WARNING: Could not pull changes even after fixing ownership. Assuming changes were made."
+            # To force a rebuild in case of error, ensure it doesn't match 'before_pull' if 'before_pull' was also an error
+            if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
+              current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+            else
+              current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
+            fi
+        fi
+    else
+        log_message "WARNING: Could not fix Git dubious ownership issue after pull. Assuming changes were made."
+        if [ "${current_commit_before_pull}" == "unknown_before_pull_error" ]; then
+          current_commit_after_pull="unknown_after_pull_error_forcing_rebuild"
+        else
+          current_commit_after_pull="unknown_after_pull_error" # Will likely not match 'before_pull'
         fi
     fi
-    
-    return ${pull_status}
-}
-
-if [ -n "${BUILD_USER}" ]; then
-    # Try with doas first
-    git_pull_output=$(${DOAS_CMD} -n -u ${BUILD_USER} ${GIT_CMD} pull 2>&1)
-    git_pull_status=$?
-    
-    # If doas fails with authentication error and this is likely a public repo, try direct pull
-    if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"doas: Authentication required"* ]]; then
-        log_message "doas authentication required. Trying direct git pull as this might be a public repository..."
-        attempt_direct_pull
-        git_pull_status=$?
-    fi
-else
-    # No BUILD_USER, use direct git pull
-    attempt_direct_pull
-    git_pull_status=$?
 fi
 
-if [ ${git_pull_status} -ne 0 ]; then
-    log_message "ERROR: Git pull failed with status ${git_pull_status}."
+if [ ${pull_status} -ne 0 ]; then
+    log_message "ERROR: Git pull failed with status ${pull_status}."
     log_message "Git output: ${git_pull_output}"
     log_message "--- Script finished with errors ---"
     exit 1
@@ -355,38 +347,12 @@ if [ ${build_status} -ne 0 ]; then
 fi
 log_message "Go application built successfully to temporary file: ${TMP_BUILD_FILE}"
 
-# Function to attempt direct file operations without doas
-attempt_direct_file_op() {
-    local op=$1
-    local src=$2
-    local dest=$3
-    log_message "Attempting direct ${op} without doas: ${src} to ${dest}..."
-    
-    if [ "${op}" = "mv" ]; then
-        mv "${src}" "${dest}" 2>&1
-        return $?
-    elif [ "${op}" = "rm" ]; then
-        rm -f "${src}" 2>&1
-        return $?
-    fi
-    return 1
-}
-
 # Backup old executable and move new one into place
 if [ -f "${GO_EXECUTABLE_DEST}" ]; then
     CURRENT_BACKUP_FILE="${GO_EXECUTABLE_DEST}.bak_$(date '+%Y%m%d%H%M%S')"
     log_message "Backing up current executable ${GO_EXECUTABLE_DEST} to ${CURRENT_BACKUP_FILE}..."
-    mv_backup_output=""
-    # Moving files in system directories typically requires elevated privileges
     mv_backup_output=$(${DOAS_CMD} -n mv "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}" 2>&1)
     mv_backup_status=$?
-    
-    # If doas fails with authentication error, try direct mv
-    if [ ${mv_backup_status} -ne 0 ] && [[ "${mv_backup_output}" == *"doas: Authentication required"* ]]; then
-        log_message "doas authentication required. Trying direct mv for backup..."
-        mv_backup_output=$(attempt_direct_file_op "mv" "${GO_EXECUTABLE_DEST}" "${CURRENT_BACKUP_FILE}")
-        mv_backup_status=$?
-    fi
 
     if [ ${mv_backup_status} -ne 0 ]; then
         log_message "ERROR: Failed to back up current executable ${GO_EXECUTABLE_DEST}."
@@ -402,17 +368,8 @@ else
 fi
 
 log_message "Moving new executable ${TMP_BUILD_FILE} to ${GO_EXECUTABLE_DEST}..."
-mv_new_output=""
-# Moving new executable also typically requires elevated privileges
 mv_new_output=$(${DOAS_CMD} -n mv "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
 mv_new_status=$?
-
-# If doas fails with authentication error, try direct mv
-if [ ${mv_new_status} -ne 0 ] && [[ "${mv_new_output}" == *"doas: Authentication required"* ]]; then
-    log_message "doas authentication required. Trying direct mv for new executable..."
-    mv_new_output=$(attempt_direct_file_op "mv" "${TMP_BUILD_FILE}" "${GO_EXECUTABLE_DEST}")
-    mv_new_status=$?
-}
 
 if [ ${mv_new_status} -ne 0 ]; then
     log_message "ERROR: Failed to move new executable from ${TMP_BUILD_FILE} to ${GO_EXECUTABLE_DEST}."
@@ -422,14 +379,7 @@ if [ ${mv_new_status} -ne 0 ]; then
         log_message "Attempting to restore backup ${CURRENT_BACKUP_FILE} to ${GO_EXECUTABLE_DEST} due to move failure..."
         restore_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         restore_status=$?
-        
-        # If doas fails with authentication error, try direct mv
-        if [ ${restore_status} -ne 0 ] && [[ "${restore_output}" == *"doas: Authentication required"* ]]; then
-            log_message "doas authentication required. Trying direct mv for restore..."
-            restore_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
-            restore_status=$?
-        fi
-        
+
         if [ ${restore_status} -eq 0 ]; then
             log_message "Successfully restored backup to ${GO_EXECUTABLE_DEST}."
         else
@@ -442,25 +392,10 @@ if [ ${mv_new_status} -ne 0 ]; then
 fi
 log_message "Successfully moved new executable to ${GO_EXECUTABLE_DEST}"
 
-
-# Function to attempt direct service restart without doas
-attempt_direct_service_restart() {
-    log_message "Attempting direct service restart without doas..."
-    ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1
-    return $?
-}
-
 # Restart the rc-service
 log_message "Attempting to restart rc-service ${RC_SERVICE_NAME}..."
 restart_output=$(${DOAS_CMD} -n ${RC_SERVICE_CMD} "${RC_SERVICE_NAME}" restart 2>&1)
 restart_status=$?
-
-# If doas fails with authentication error, try direct restart
-if [ ${restart_status} -ne 0 ] && [[ "${restart_output}" == *"doas: Authentication required"* ]]; then
-    log_message "doas authentication required. Trying direct service restart..."
-    restart_output=$(attempt_direct_service_restart)
-    restart_status=$?
-}
 
 if [ ${restart_status} -ne 0 ]; then
     log_message "ERROR: Failed to restart rc-service ${RC_SERVICE_NAME} with status ${restart_status}."
@@ -470,14 +405,7 @@ if [ ${restart_status} -ne 0 ]; then
         log_message "Moving backup ${CURRENT_BACKUP_FILE} back to ${GO_EXECUTABLE_DEST}."
         rollback_output=$(${DOAS_CMD} -n mv "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}" 2>&1)
         rollback_status=$?
-        
-        # If doas fails with authentication error, try direct mv
-        if [ ${rollback_status} -ne 0 ] && [[ "${rollback_output}" == *"doas: Authentication required"* ]]; then
-            log_message "doas authentication required. Trying direct mv for rollback..."
-            rollback_output=$(attempt_direct_file_op "mv" "${CURRENT_BACKUP_FILE}" "${GO_EXECUTABLE_DEST}")
-            rollback_status=$?
-        fi
-        
+
         if [ ${rollback_status} -eq 0 ]; then
             log_message "Rollback successful. Service ${RC_SERVICE_NAME} may need to be started manually or with another restart attempt."
             # Optionally, try to restart the service again with the old executable
@@ -502,12 +430,6 @@ else
         delete_backup_output=$(${DOAS_CMD} -n rm -f "${CURRENT_BACKUP_FILE}" 2>&1)
         delete_backup_status=$?
 
-        # If doas fails with authentication error, try direct rm
-        if [ ${delete_backup_status} -ne 0 ] && [[ "${delete_backup_output}" == *"doas: Authentication required"* ]]; then
-            log_message "doas authentication required. Trying direct rm for backup file..."
-            delete_backup_output=$(attempt_direct_file_op "rm" "${CURRENT_BACKUP_FILE}" "")
-            delete_backup_status=$?
-        fi
         if [ ${delete_backup_status} -eq 0 ]; then
             log_message "Successfully deleted backup file ${CURRENT_BACKUP_FILE}."
         else
