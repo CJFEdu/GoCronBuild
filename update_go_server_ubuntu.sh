@@ -298,13 +298,7 @@ fi
 # Set up GOCACHE and GOMODCACHE in the project directory if BUILD_USER is specified
 # This ensures the build user has write access to these directories
 if [ -n "${BUILD_USER}" ]; then
-    # Function to attempt direct mkdir without sudo
-    attempt_direct_mkdir() {
-        local dir=$1
-        log_message "Attempting direct mkdir for ${dir} without sudo..."
-        mkdir -p "${dir}" 2>&1
-        return $?
-    }
+
     
     # Create GOCACHE directory
     GOCACHE_DIR="${PROJECT_DIR}/.gocache"
@@ -313,15 +307,8 @@ if [ -n "${BUILD_USER}" ]; then
     mkdir_gocache_status=$?
     
     if [ ${mkdir_gocache_status} -ne 0 ]; then
-        if [[ "${mkdir_gocache_output}" == *"sudo: a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct mkdir for GOCACHE_DIR..."
-            mkdir_gocache_output=$(attempt_direct_mkdir "${GOCACHE_DIR}")
-            mkdir_gocache_status=$?
-        fi
-        
-        if [ ${mkdir_gocache_status} -ne 0 ]; then
-            log_message "WARNING: Failed to create GOCACHE directory. Build may fail. Output: ${mkdir_gocache_output}"
-        fi
+        log_message "ERROR: Failed to create GOCACHE directory. Output: ${mkdir_gocache_output}"
+        exit 1
     fi
     
     # Create GOMODCACHE directory
@@ -331,15 +318,8 @@ if [ -n "${BUILD_USER}" ]; then
     mkdir_gomodcache_status=$?
     
     if [ ${mkdir_gomodcache_status} -ne 0 ]; then
-        if [[ "${mkdir_gomodcache_output}" == *"sudo: a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct mkdir for GOMODCACHE_DIR..."
-            mkdir_gomodcache_output=$(attempt_direct_mkdir "${GOMODCACHE_DIR}")
-            mkdir_gomodcache_status=$?
-        fi
-        
-        if [ ${mkdir_gomodcache_status} -ne 0 ]; then
-            log_message "WARNING: Failed to create GOMODCACHE directory. Build may fail. Output: ${mkdir_gomodcache_output}"
-        fi
+        log_message "ERROR: Failed to create GOMODCACHE directory. Output: ${mkdir_gomodcache_output}"
+        exit 1
     fi
     
     # Set environment variables for the build

@@ -317,36 +317,21 @@ if [ -n "${BUILD_USER}" ]; then
     
     log_message "Ensuring Go cache directories exist for ${BUILD_USER} at ${GOCACHE_DIR} and ${GOMODCACHE_DIR}"
     
-    # Function to attempt direct mkdir without doas
-    attempt_direct_mkdir() {
-        local dir=$1
-        log_message "Attempting direct mkdir for ${dir} without doas..."
-        mkdir -p "${dir}" 2>&1
-        return $?
-    }
+
     
     # Try to create cache dirs as BUILD_USER
     mkdir_gocache_output=$(${DOAS_CMD} -n -u ${BUILD_USER} mkdir -p "${GOCACHE_DIR}" 2>&1)
     mkdir_gocache_status=$?
     if [ ${mkdir_gocache_status} -ne 0 ]; then
-        if [[ "${mkdir_gocache_output}" == *"doas: Authentication required"* ]]; then
-            log_message "doas authentication required. Trying direct mkdir for GOCACHE_DIR..."
-            attempt_direct_mkdir "${GOCACHE_DIR}"
-        else
-            log_message "WARNING: Could not create GOCACHE_DIR (${GOCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gocache_output}"
-            # Depending on Go version, build might still proceed if cache is not critical or uses another fallback.
-        fi
+        log_message "ERROR: Failed to create GOCACHE directory. Output: ${mkdir_gocache_output}"
+        exit 1
     fi
     
     mkdir_gomodcache_output=$(${DOAS_CMD} -n -u ${BUILD_USER} mkdir -p "${GOMODCACHE_DIR}" 2>&1)
     mkdir_gomodcache_status=$?
     if [ ${mkdir_gomodcache_status} -ne 0 ]; then
-        if [[ "${mkdir_gomodcache_output}" == *"doas: Authentication required"* ]]; then
-            log_message "doas authentication required. Trying direct mkdir for GOMODCACHE_DIR..."
-            attempt_direct_mkdir "${GOMODCACHE_DIR}"
-        else
-            log_message "WARNING: Could not create GOMODCACHE_DIR (${GOMODCACHE_DIR}) as ${BUILD_USER}. Output: ${mkdir_gomodcache_output}"
-        fi
+        log_message "ERROR: Failed to create GOMODCACHE directory. Output: ${mkdir_gomodcache_output}"
+        exit 1
     fi
 
     log_message "Executing go build with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
