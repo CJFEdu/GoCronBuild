@@ -96,6 +96,7 @@ add_line ""
 if [ -n "${BUILD_USER}" ]; then
     add_line "# Allow running git and go commands as ${BUILD_USER}"
     add_line "${CURRENT_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} pull"
+    add_line "${CURRENT_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} rev-parse HEAD"
     add_line "${CURRENT_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GO_CMD} build -o * ."
     add_line ""
 fi
@@ -135,6 +136,7 @@ add_line ""
 if [ -n "${BUILD_USER}" ]; then
     add_line "# Allow running git and go commands as ${BUILD_USER}"
     add_line "${CURRENT_USER} ALL=(${BUILD_USER}) ${GIT_CMD} pull"
+    add_line "${CURRENT_USER} ALL=(${BUILD_USER}) ${GIT_CMD} rev-parse HEAD"
     add_line "${CURRENT_USER} ALL=(${BUILD_USER}) ${GO_CMD} build -o * ."
     add_line ""
 fi
