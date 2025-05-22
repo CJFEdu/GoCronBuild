@@ -248,12 +248,12 @@ To automate the update process, you can run the update script via cron:
 2. Add a cron job entry:
    ```cron
    # Run daily at 3:00 AM
-   0 3 * * * /path/to/GoCronBuild/update_go_server.sh
+   0 3 * * * /path/to/GoCronBuild/update_go_server_ubuntu.sh
    ```
 
    Or to run every hour:
    ```cron
-   0 * * * * /path/to/GoCronBuild/update_go_server.sh
+   0 * * * * /path/to/GoCronBuild/update_go_server_ubuntu.sh
    ```
 
 ## Troubleshooting
