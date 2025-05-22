@@ -155,9 +155,17 @@ attempt_direct_pull() {
 if [ -n "${BUILD_USER}" ]; then
     log_message "Getting current commit hash as user: ${BUILD_USER}"
     log_message "Debug: SUDO_CMD=${SUDO_CMD}, BUILD_USER=${BUILD_USER}, GIT_CMD=${GIT_CMD}"
-    log_message "Debug: Full command: ${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD"
+    
+    # Try different sudo approaches
+    log_message "Debug: Trying approach 1: ${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD"
     old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     old_commit_status=$?
+    
+    if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+        log_message "Debug: First approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
+        old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
+        old_commit_status=$?
+    fi
     log_message "Debug: Command exit status: ${old_commit_status}"
     log_message "Debug: Command output: ${old_commit_output}"
     
@@ -167,6 +175,12 @@ if [ -n "${BUILD_USER}" ]; then
             log_message "Retrying git rev-parse after fixing dubious ownership..."
             old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
             old_commit_status=$?
+            
+            if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+                log_message "Debug: First approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
+                old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
+                old_commit_status=$?
+            fi
         fi
     fi
 else
@@ -199,8 +213,14 @@ log_message "Pulling latest changes from git repository..."
 if [ -n "${BUILD_USER}" ]; then
     # Try with sudo first
     log_message "Pulling as user: ${BUILD_USER}"
-    git_pull_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
+    git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} pull 2>&1)
     git_pull_status=$?
+    
+    if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
+        log_message "Debug: First git pull approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
+        git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
+        git_pull_status=$?
+    fi
     
     # Handle dubious ownership error if it occurs
     if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"dubious ownership"* ]]; then
@@ -208,6 +228,12 @@ if [ -n "${BUILD_USER}" ]; then
             log_message "Retrying git pull after fixing dubious ownership..."
             git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} pull 2>&1)
             git_pull_status=$?
+            
+            if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
+                log_message "Debug: First git pull retry approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
+                git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
+                git_pull_status=$?
+            fi
         fi
     fi
     
@@ -243,6 +269,12 @@ log_message "Git pull output: ${git_pull_output}"
 if [ -n "${BUILD_USER}" ]; then
     new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     new_commit_status=$?
+    
+    if [ ${new_commit_status} -ne 0 ] && [[ "${new_commit_output}" == *"a password is required"* ]]; then
+        log_message "Debug: First new commit hash approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
+        new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
+        new_commit_status=$?
+    fi
 else
     new_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
     new_commit_status=$?
@@ -337,6 +369,12 @@ if [ -n "${BUILD_USER}" ]; then
     log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
     build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
+    
+    if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"a password is required"* ]]; then
+        log_message "Debug: First build approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE=\"${GOCACHE_DIR}\" GOMODCACHE=\"${GOMODCACHE_DIR}\" ${GO_CMD} build -o \"${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp\" ."
+        build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+        build_status=$?
+    fi
     
     # If sudo fails with authentication error, try direct build
     if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"sudo: a password is required"* ]]; then
