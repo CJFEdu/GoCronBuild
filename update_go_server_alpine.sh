@@ -351,19 +351,19 @@ if [ -n "${BUILD_USER}" ]; then
 
     log_message "Executing go build with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
     # Try with doas first
-    build_output=$(${DOAS_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_output=$(${DOAS_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
     
     # If doas fails with authentication error, try direct build
     if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"doas: Authentication required"* ]]; then
         log_message "doas authentication required. Trying direct go build..."
-        build_output=$(env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+        build_output=$(env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${TMP_BUILD_FILE}" . 2>&1)
         build_status=$?
     fi
 else
     # For root or cron user without specific BUILD_USER, Go will use their default cache locations
     # or system-wide caches if configured.
-    build_output=$(${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_output=$(${GO_CMD} build -buildvcs=false -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 fi
 

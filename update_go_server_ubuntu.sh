@@ -349,25 +349,25 @@ if [ -n "${BUILD_USER}" ]; then
     
     # Try with sudo first
     log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
-    build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+    build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
     
     if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"a password is required"* ]]; then
-        log_message "Debug: First build approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE=\"${GOCACHE_DIR}\" GOMODCACHE=\"${GOMODCACHE_DIR}\" ${GO_CMD} build -o \"${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp\" ."
-        build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+        log_message "Debug: First build approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE=\"${GOCACHE_DIR}\" GOMODCACHE=\"${GOMODCACHE_DIR}\" ${GO_CMD} build -buildvcs=false -o \"${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp\" ."
+        build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
         build_status=$?
     fi
     
     # If sudo fails with authentication error, try direct build
     if [ ${build_status} -ne 0 ] && [[ "${build_output}" == *"sudo: a password is required"* ]]; then
         log_message "sudo authentication required. Trying direct go build..."
-        build_output=$(${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+        build_output=$(${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
         build_status=$?
     fi
 else
     # Direct build if no BUILD_USER
     log_message "Building Go executable..."
-    build_output=$(${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+    build_output=$(${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
 fi
 
