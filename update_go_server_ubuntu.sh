@@ -309,7 +309,7 @@ if [ -n "${BUILD_USER}" ]; then
     # Create GOCACHE directory
     GOCACHE_DIR="${PROJECT_DIR}/.gocache"
     log_message "Setting up GOCACHE directory: ${GOCACHE_DIR}"
-    mkdir_gocache_output=$(${SUDO_CMD} -n mkdir -p "${GOCACHE_DIR}" 2>&1)
+    mkdir_gocache_output=$(${SUDO_CMD} -n -u ${BUILD_USER} mkdir -p "${GOCACHE_DIR}" 2>&1)
     mkdir_gocache_status=$?
     
     if [ ${mkdir_gocache_status} -ne 0 ]; then
@@ -327,7 +327,7 @@ if [ -n "${BUILD_USER}" ]; then
     # Create GOMODCACHE directory
     GOMODCACHE_DIR="${PROJECT_DIR}/.gomodcache"
     log_message "Setting up GOMODCACHE directory: ${GOMODCACHE_DIR}"
-    mkdir_gomodcache_output=$(${SUDO_CMD} -n mkdir -p "${GOMODCACHE_DIR}" 2>&1)
+    mkdir_gomodcache_output=$(${SUDO_CMD} -n -u ${BUILD_USER} mkdir -p "${GOMODCACHE_DIR}" 2>&1)
     mkdir_gomodcache_status=$?
     
     if [ ${mkdir_gomodcache_status} -ne 0 ]; then
