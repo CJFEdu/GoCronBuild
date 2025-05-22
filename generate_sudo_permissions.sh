@@ -113,14 +113,20 @@ add_line ""
 # File operations permissions
 add_line "# Allow moving the executable to backup"
 add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/mv ${GO_EXECUTABLE_DEST} ${GO_EXECUTABLE_DEST}.bak_*"
+add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/mv ${CURRENT_BACKUP_FILE} ${GO_EXECUTABLE_DEST}"
 add_line ""
 
 add_line "# Allow moving the new executable into place"
 add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/mv ${GO_EXECUTABLE_DEST}.tmp.* ${GO_EXECUTABLE_DEST}"
+add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/mv ${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp ${GO_EXECUTABLE_DEST}"
 add_line ""
 
 add_line "# Allow deleting backup executables"
 add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/rm ${GO_EXECUTABLE_DEST}.bak_*"
+add_line ""
+
+# Allow removing temporary executables
+add_line "${CRON_USER} ALL=(root) NOPASSWD: /usr/bin/rm -f ${CURRENT_BACKUP_FILE}"
 add_line ""
 
 # Add permissions for log directory
@@ -135,6 +141,7 @@ if [ -n "${BUILD_USER}" ]; then
     add_line "# Allow running git and go commands as ${BUILD_USER}"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} pull"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} rev-parse HEAD"
+    add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} config --global --add safe.directory *"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GO_CMD} build -o * ."
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: /usr/bin/env GOCACHE=* GOMODCACHE=* ${GO_CMD} build -buildvcs=false -o * ."
     add_line ""
