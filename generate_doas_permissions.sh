@@ -137,6 +137,7 @@ if [ -n "${BUILD_USER}" ]; then
     add_line "permit nopass ${CRON_USER} as ${BUILD_USER} cmd ${GIT_CMD} args pull"
     add_line "permit nopass ${CRON_USER} as ${BUILD_USER} cmd ${GIT_CMD} args rev-parse HEAD"
     add_line "permit nopass ${CRON_USER} as ${BUILD_USER} cmd ${GO_CMD} args build -o * ."
+    add_line "permit nopass ${CRON_USER} as ${BUILD_USER} cmd /usr/bin/env args GOCACHE=* GOMODCACHE=* ${GO_CMD} build -buildvcs=false -o * ."
     add_line ""
     add_line "# Allow creating Go cache directories as ${BUILD_USER}"
     add_line "permit nopass ${CRON_USER} as ${BUILD_USER} cmd /bin/mkdir args -p ${PROJECT_DIR}/.gocache"

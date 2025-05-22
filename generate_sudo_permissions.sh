@@ -136,6 +136,7 @@ if [ -n "${BUILD_USER}" ]; then
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} pull"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} rev-parse HEAD"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GO_CMD} build -o * ."
+    add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: /usr/bin/env GOCACHE=* GOMODCACHE=* ${GO_CMD} build -buildvcs=false -o * ."
     add_line ""
     add_line "# Allow creating Go cache directories as ${BUILD_USER}"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: /bin/mkdir -p ${PROJECT_DIR}/.gocache"
