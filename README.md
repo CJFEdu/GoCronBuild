@@ -108,7 +108,13 @@ Generate the necessary sudo permissions for your users:
 ./generate_sudo_permissions.sh
 ```
 
-This will create a `sudoers.txt` file with the necessary sudo configuration entries based on your `config.sh` settings.
+This will create a `sudoers.txt` file with the necessary sudo configuration entries based on your `config.sh` settings. All entries include the `NOPASSWD` flag to ensure they work properly with cron jobs.
+
+If you need to generate permissions for a different user to run the cron jobs, use the `--cron-user` parameter:
+
+```bash
+./generate_sudo_permissions.sh --cron-user=cron_username
+```
 
 Create a dedicated sudoers file and add the entries:
 

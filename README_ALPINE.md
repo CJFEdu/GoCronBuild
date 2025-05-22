@@ -108,7 +108,13 @@ Generate the necessary doas permissions for your users:
 ./generate_doas_permissions.sh
 ```
 
-This will create a `doas.txt` file with the necessary doas configuration entries based on your `config.sh` settings.
+This will create a `doas.txt` file with the necessary doas configuration entries based on your `config.sh` settings. All entries include the `nopass` flag to ensure they work properly with cron jobs.
+
+If you need to generate permissions for a different user to run the cron jobs, use the `--cron-user` parameter:
+
+```bash
+./generate_doas_permissions.sh --cron-user=cron_username
+```
 
 Create or update your doas configuration file:
 
