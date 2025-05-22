@@ -347,68 +347,6 @@ if [ -n "${BUILD_USER}" ]; then
     export GOMODCACHE="${GOMODCACHE_DIR}"
     log_message "Set GOCACHE=${GOCACHE} and GOMODCACHE=${GOMODCACHE}"
     
-    # Ensure the build output directory exists and has proper permissions
-    BUILD_OUTPUT_DIR="$(dirname "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp")"
-    log_message "Ensuring build output directory exists and has proper permissions: ${BUILD_OUTPUT_DIR}"
-    
-    # Create tmp directory if it doesn't exist
-    if [ ! -d "${BUILD_OUTPUT_DIR}" ]; then
-        log_message "Build output directory does not exist, creating it..."
-        
-        # First try with sudo
-        mkdir_output=$(${SUDO_CMD} -n mkdir -p "${BUILD_OUTPUT_DIR}" 2>&1)
-        mkdir_status=$?
-        
-        # If sudo fails, try direct mkdir
-        if [ ${mkdir_status} -ne 0 ] && [[ "${mkdir_output}" == *"a password is required"* ]]; then
-            log_message "sudo authentication required. Trying direct mkdir..."
-            mkdir_output=$(mkdir -p "${BUILD_OUTPUT_DIR}" 2>&1)
-            mkdir_status=$?
-        fi
-        
-        if [ ${mkdir_status} -ne 0 ]; then
-            log_message "WARNING: Failed to create build output directory. Build will fail. Output: ${mkdir_output}"
-        else
-            log_message "Successfully created build output directory"
-        fi
-    fi
-    
-    # First try with sudo
-    chmod_output=$(${SUDO_CMD} -n chmod 775 "${BUILD_OUTPUT_DIR}" 2>&1)
-    chmod_status=$?
-    
-    # If sudo fails, try direct chmod
-    if [ ${chmod_status} -ne 0 ] && [[ "${chmod_output}" == *"a password is required"* ]]; then
-        log_message "sudo authentication required. Trying direct chmod..."
-        chmod_output=$(chmod 775 "${BUILD_OUTPUT_DIR}" 2>&1)
-        chmod_status=$?
-    fi
-    
-    if [ ${chmod_status} -ne 0 ]; then
-        log_message "WARNING: Failed to set permissions on build output directory. Build may fail. Output: ${chmod_output}"
-    else
-        log_message "Successfully set permissions on build output directory"
-    fi
-    
-    # Set ownership of the build output directory to BUILD_USER if specified
-    if [ -n "${BUILD_USER}" ]; then
-        log_message "Setting ownership of build output directory to ${BUILD_USER}"
-        
-        # First try with sudo
-        chown_output=$(${SUDO_CMD} -n chown ${BUILD_USER}:${BUILD_USER} "${BUILD_OUTPUT_DIR}" 2>&1)
-        chown_status=$?
-        
-        # If sudo fails, try direct chown (though this will likely fail without root)
-        if [ ${chown_status} -ne 0 ] && [[ "${chown_output}" == *"a password is required"* ]]; then
-            log_message "sudo authentication required for chown. This will likely fail without root privileges."
-            log_message "Continuing anyway, but build may fail due to permission issues."
-        elif [ ${chown_status} -ne 0 ]; then
-            log_message "WARNING: Failed to set ownership of build output directory. Build may fail. Output: ${chown_output}"
-        else
-            log_message "Successfully set ownership of build output directory to ${BUILD_USER}"
-        fi
-    fi
-    
     # Try with sudo first
     log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
     build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
