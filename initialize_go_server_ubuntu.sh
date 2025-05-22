@@ -58,7 +58,7 @@ check_var "REPO_PATH" "${REPO_PATH}"
 check_var "PROJECT_DIR" "${PROJECT_DIR}"
 check_var "GO_EXECUTABLE_NAME" "${GO_EXECUTABLE_NAME}"
 check_var "GO_EXECUTABLE_DEST" "${GO_EXECUTABLE_DEST}"
-check_var "RC_SERVICE_NAME" "${RC_SERVICE_NAME}"
+check_var "SERVICE_NAME" "${SERVICE_NAME}"
 check_var "LOG_DIR" "${LOG_DIR}"
 check_var "LOG_BASE_NAME" "${LOG_BASE_NAME}"
 check_var "SERVICE_DESCRIPTION" "${SERVICE_DESCRIPTION}"
@@ -279,7 +279,7 @@ fi
 log_message "Step 3: Creating systemd service..."
 
 # Create the service file
-SERVICE_FILE="/etc/systemd/system/${RC_SERVICE_NAME}.service"
+SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 log_message "Creating service file: ${SERVICE_FILE}"
 
 # Create the service file content
@@ -322,20 +322,20 @@ if [ $? -ne 0 ]; then
 fi
 
 # Start the service
-log_message "Starting service: ${RC_SERVICE_NAME}"
-${SUDO_CMD} systemctl start "${RC_SERVICE_NAME}"
+log_message "Starting service: ${SERVICE_NAME}"
+${SUDO_CMD} systemctl start "${SERVICE_NAME}"
 if [ $? -ne 0 ]; then
     log_message "ERROR: Failed to start service."
-    log_message "Check service status with: ${SUDO_CMD} systemctl status ${RC_SERVICE_NAME}"
+    log_message "Check service status with: ${SUDO_CMD} systemctl status ${SERVICE_NAME}"
     exit 1
 fi
 
 # Check service status
 sleep 2 # Give the service a moment to start
-service_status=$(${SUDO_CMD} systemctl is-active "${RC_SERVICE_NAME}")
+service_status=$(${SUDO_CMD} systemctl is-active "${SERVICE_NAME}")
 if [ "${service_status}" != "active" ]; then
     log_message "WARNING: Service is not active. Status: ${service_status}"
-    log_message "Check service logs with: ${SUDO_CMD} journalctl -u ${RC_SERVICE_NAME}"
+    log_message "Check service logs with: ${SUDO_CMD} journalctl -u ${SERVICE_NAME}"
     exit 1
 fi
 
@@ -343,7 +343,7 @@ log_message "Service started successfully"
 
 # --- Step 5: Enable the service to start on boot ---
 log_message "Step 5: Enabling service to start on boot..."
-${SUDO_CMD} systemctl enable "${RC_SERVICE_NAME}"
+${SUDO_CMD} systemctl enable "${SERVICE_NAME}"
 if [ $? -ne 0 ]; then
     log_message "ERROR: Failed to enable service for automatic start on boot."
     exit 1
@@ -371,19 +371,19 @@ log_message "Summary of initialization:"
 log_message "- Repository cloned to: ${REPO_PATH}"
 log_message "- Go application built from: ${PROJECT_DIR}"
 log_message "- Executable installed at: ${GO_EXECUTABLE_DEST}"
-log_message "- Service name: ${RC_SERVICE_NAME}"
-log_message "- Service status: $(${SUDO_CMD} systemctl is-active "${RC_SERVICE_NAME}")"
-log_message "- Service enabled on boot: $(${SUDO_CMD} systemctl is-enabled "${RC_SERVICE_NAME}")"
+log_message "- Service name: ${SERVICE_NAME}"
+log_message "- Service status: $(${SUDO_CMD} systemctl is-active "${SERVICE_NAME}")"
+log_message "- Service enabled on boot: $(${SUDO_CMD} systemctl is-enabled "${SERVICE_NAME}")"
 log_message ""
 log_message "To manage the service, use:"
-log_message "  ${SUDO_CMD} systemctl start ${RC_SERVICE_NAME}"
-log_message "  ${SUDO_CMD} systemctl stop ${RC_SERVICE_NAME}"
-log_message "  ${SUDO_CMD} systemctl restart ${RC_SERVICE_NAME}"
-log_message "  ${SUDO_CMD} systemctl status ${RC_SERVICE_NAME}"
+log_message "  ${SUDO_CMD} systemctl start ${SERVICE_NAME}"
+log_message "  ${SUDO_CMD} systemctl stop ${SERVICE_NAME}"
+log_message "  ${SUDO_CMD} systemctl restart ${SERVICE_NAME}"
+log_message "  ${SUDO_CMD} systemctl status ${SERVICE_NAME}"
 log_message ""
 log_message "To view service logs:"
-log_message "  ${SUDO_CMD} journalctl -u ${RC_SERVICE_NAME}"
-log_message "  ${SUDO_CMD} journalctl -u ${RC_SERVICE_NAME} -f  # Follow logs in real-time"
+log_message "  ${SUDO_CMD} journalctl -u ${SERVICE_NAME}"
+log_message "  ${SUDO_CMD} journalctl -u ${SERVICE_NAME} -f  # Follow logs in real-time"
 log_message ""
 log_message "The update script is configured to automatically check for updates."
 log_message "Make sure to install the ${SUDO_CMD} permissions from sudoers.txt to enable automatic updates."

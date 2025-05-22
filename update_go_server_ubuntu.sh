@@ -99,8 +99,8 @@ if [ -z "${GO_EXECUTABLE_DEST}" ]; then
     exit 1
 fi
 
-if [ -z "${RC_SERVICE_NAME}" ]; then
-    log_message "ERROR: RC_SERVICE_NAME is not set in config.sh"
+if [ -z "${SERVICE_NAME}" ]; then
+    log_message "ERROR: SERVICE_NAME is not set in config.sh"
     exit 1
 fi
 
@@ -386,14 +386,14 @@ log_message "New executable moved to destination successfully."
 
 
 # Restart the systemd service
-log_message "Attempting to restart systemd service ${RC_SERVICE_NAME}..."
-restart_output=$(${SUDO_CMD} -n systemctl restart "${RC_SERVICE_NAME}" 2>&1)
+log_message "Attempting to restart systemd service ${SERVICE_NAME}..."
+restart_output=$(${SUDO_CMD} -n systemctl restart "${SERVICE_NAME}" 2>&1)
 restart_status=$?
 
 
 
 if [ ${restart_status} -ne 0 ]; then
-    log_message "ERROR: Failed to restart systemd service ${RC_SERVICE_NAME} with status ${restart_status}."
+    log_message "ERROR: Failed to restart systemd service ${SERVICE_NAME} with status ${restart_status}."
     log_message "Restart output: ${restart_output}"
     log_message "Attempting to roll back to previous executable..."
     
@@ -407,7 +407,7 @@ if [ ${restart_status} -ne 0 ]; then
             
             # Try to restart the service with the old executable
             log_message "Attempting to restart service with previous executable..."
-            rollback_restart_output=$(${SUDO_CMD} -n systemctl restart "${RC_SERVICE_NAME}" 2>&1)
+            rollback_restart_output=$(${SUDO_CMD} -n systemctl restart "${SERVICE_NAME}" 2>&1)
             rollback_restart_status=$?
             
             if [ ${rollback_restart_status} -eq 0 ]; then
@@ -425,7 +425,7 @@ if [ ${restart_status} -ne 0 ]; then
     log_message "--- Script finished with errors ---"
     exit 1
 else
-    log_message "systemd service ${RC_SERVICE_NAME} restarted successfully with the new executable."
+    log_message "systemd service ${SERVICE_NAME} restarted successfully with the new executable."
     # If restart was successful, clean up the backup made during this run
     if [ -n "${CURRENT_BACKUP_FILE}" ] && [ -f "${CURRENT_BACKUP_FILE}" ]; then
         log_message "Deleting backup file from this run: ${CURRENT_BACKUP_FILE}"

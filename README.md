@@ -50,7 +50,7 @@ The script uses an external configuration file (`config.sh`) to store all enviro
    * `PROJECT_DIR`: Absolute path to your Go project's Git repository (e.g., `/srv/myapp/source`).
    * `GO_EXECUTABLE_NAME`: The name of your compiled Go binary (e.g., `myapp-server`).
    * `GO_EXECUTABLE_DEST`: The full path where the live executable is located and should be updated (e.g., `/usr/local/bin/myapp-server`).
-   * `RC_SERVICE_NAME`: The name of your systemd service (e.g., `myapp-server`).
+   * `SERVICE_NAME`: The name of your systemd service (e.g., `myapp-server`).
    * `LOG_DIR`: Directory where daily log files will be stored (e.g., `/var/log/go_project_updater`).
    * `LOG_BASE_NAME`: The base name for log files (e.g., `myapp_updater`).
    * `BUILD_USER` (Optional): Username to run `git pull` and `go build` as. If empty, these commands run as the user executing the script.

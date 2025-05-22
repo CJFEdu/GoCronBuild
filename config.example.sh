@@ -40,9 +40,8 @@ GO_EXECUTABLE_NAME="${PROJECT_NAME}-server"
 # Example: GO_EXECUTABLE_DEST="/usr/local/bin/${GO_EXECUTABLE_NAME}"
 GO_EXECUTABLE_DEST="/usr/local/bin/${GO_EXECUTABLE_NAME}"
 
-# The name of your rc-service
+# The name of your systemd service
 SERVICE_NAME="${PROJECT_NAME}-service"
-RC_SERVICE_NAME="${SERVICE_NAME}"
 
 # Directory for all log files of this script
 LOG_DIR="/var/log/${PROJECT_NAME}_updater"
@@ -61,10 +60,8 @@ GIT_CMD="/usr/bin/git" # Adjust if your git path is different
 # Go command (use absolute path if not in cron's default PATH)
 GO_CMD="/usr/bin/go" # Ubuntu typically installs Go in /usr/bin/go
 
-# service command (use absolute path)
-SERVICE_CMD="/usr/sbin/service" # Ubuntu uses systemd's service command
-RC_SERVICE_CMD="/sbin/rc-service" # Alpine uses rc-service
+# systemd service command (use absolute path)
+SERVICE_CMD="/bin/systemctl" # Ubuntu uses systemd's systemctl command
 
 # sudo command (use absolute path)
-DOAS_CMD="/usr/bin/doas" # Alpine uses doas instead of sudo
-SUDO_CMD="/usr/bin/sudo" # Ubuntu uses sudo instead of doas
+SUDO_CMD="/usr/bin/sudo" # Ubuntu uses sudo for privilege escalation

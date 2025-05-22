@@ -107,7 +107,7 @@ add_line ""
 
 # Service restart permission
 add_line "# Allow restarting the service"
-add_line "${CRON_USER} ALL=(root) NOPASSWD: ${RC_SERVICE_CMD} ${RC_SERVICE_NAME} restart"
+add_line "${CRON_USER} ALL=(root) NOPASSWD: ${SERVICE_CMD} restart ${SERVICE_NAME}"
 add_line ""
 
 # File operations permissions
