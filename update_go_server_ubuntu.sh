@@ -168,7 +168,7 @@ if [ -n "${BUILD_USER}" ]; then
     log_message "Debug: Basic sudo test exit status: ${test_sudo_status}"
     log_message "Debug: Basic sudo test output: ${test_sudo_output}"
     
-    # Now try the git command
+    # Now try the git command with different approaches to handle secure_path issues
     log_message "Debug: Trying approach 1: ${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD"
     old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     old_commit_status=$?
@@ -179,6 +179,22 @@ if [ -n "${BUILD_USER}" ]; then
         old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
         old_commit_status=$?
         log_message "Debug: Second approach exit status: ${old_commit_status}"
+        
+        if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+            # Try with PATH explicitly set
+            log_message "Debug: Second approach failed, trying approach 3: ${SUDO_CMD} -n -u ${BUILD_USER} env PATH=/usr/bin:/bin:/usr/sbin:/sbin ${GIT_CMD} rev-parse HEAD"
+            old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env PATH=/usr/bin:/bin:/usr/sbin:/sbin ${GIT_CMD} rev-parse HEAD 2>&1)
+            old_commit_status=$?
+            log_message "Debug: Third approach exit status: ${old_commit_status}"
+            
+            if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+                # Try with a shell command
+                log_message "Debug: Third approach failed, trying approach 4: ${SUDO_CMD} -n -u ${BUILD_USER} sh -c '${GIT_CMD} rev-parse HEAD'"
+                old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} sh -c "${GIT_CMD} rev-parse HEAD" 2>&1)
+                old_commit_status=$?
+                log_message "Debug: Fourth approach exit status: ${old_commit_status}"
+            fi
+        fi
     fi
     log_message "Debug: Command output: ${old_commit_output}"
     
