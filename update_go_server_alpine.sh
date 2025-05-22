@@ -350,6 +350,68 @@ if [ -n "${BUILD_USER}" ]; then
     fi
 
     log_message "Executing go build with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
+    
+    # Ensure the build output directory exists and has proper permissions
+    BUILD_OUTPUT_DIR="$(dirname "${TMP_BUILD_FILE}")"
+    log_message "Ensuring build output directory exists and has proper permissions: ${BUILD_OUTPUT_DIR}"
+    
+    # Create tmp directory if it doesn't exist
+    if [ ! -d "${BUILD_OUTPUT_DIR}" ]; then
+        log_message "Build output directory does not exist, creating it..."
+        
+        # First try with doas
+        mkdir_output=$(${DOAS_CMD} -n mkdir -p "${BUILD_OUTPUT_DIR}" 2>&1)
+        mkdir_status=$?
+        
+        # If doas fails, try direct mkdir
+        if [ ${mkdir_status} -ne 0 ] && [[ "${mkdir_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required. Trying direct mkdir..."
+            mkdir_output=$(mkdir -p "${BUILD_OUTPUT_DIR}" 2>&1)
+            mkdir_status=$?
+        fi
+        
+        if [ ${mkdir_status} -ne 0 ]; then
+            log_message "WARNING: Failed to create build output directory. Build will fail. Output: ${mkdir_output}"
+        else
+            log_message "Successfully created build output directory"
+        fi
+    fi
+    
+    # First try with doas
+    chmod_output=$(${DOAS_CMD} -n chmod 775 "${BUILD_OUTPUT_DIR}" 2>&1)
+    chmod_status=$?
+    
+    # If doas fails, try direct chmod
+    if [ ${chmod_status} -ne 0 ] && [[ "${chmod_output}" == *"doas: Authentication required"* ]]; then
+        log_message "doas authentication required. Trying direct chmod..."
+        chmod_output=$(chmod 775 "${BUILD_OUTPUT_DIR}" 2>&1)
+        chmod_status=$?
+    fi
+    
+    if [ ${chmod_status} -ne 0 ]; then
+        log_message "WARNING: Failed to set permissions on build output directory. Build may fail. Output: ${chmod_output}"
+    else
+        log_message "Successfully set permissions on build output directory"
+    fi
+    
+    # Set ownership of the build output directory to BUILD_USER if specified
+    if [ -n "${BUILD_USER}" ]; then
+        log_message "Setting ownership of build output directory to ${BUILD_USER}"
+        
+        # First try with doas
+        chown_output=$(${DOAS_CMD} -n chown ${BUILD_USER}:${BUILD_USER} "${BUILD_OUTPUT_DIR}" 2>&1)
+        chown_status=$?
+        
+        # If doas fails, try direct chown (though this will likely fail without root)
+        if [ ${chown_status} -ne 0 ] && [[ "${chown_output}" == *"doas: Authentication required"* ]]; then
+            log_message "doas authentication required for chown. This will likely fail without root privileges."
+            log_message "Continuing anyway, but build may fail due to permission issues."
+        elif [ ${chown_status} -ne 0 ]; then
+            log_message "WARNING: Failed to set ownership of build output directory. Build may fail. Output: ${chown_output}"
+        else
+            log_message "Successfully set ownership of build output directory to ${BUILD_USER}"
+        fi
+    fi
     # Try with doas first
     build_output=$(${DOAS_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
