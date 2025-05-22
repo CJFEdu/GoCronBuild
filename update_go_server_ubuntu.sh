@@ -209,6 +209,8 @@ if [ -n "${BUILD_USER}" ]; then
             if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
                 log_message "Debug: First git pull retry approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
                 git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
+                git_pull_status=$?
+            fi
         fi
     fi
 else
