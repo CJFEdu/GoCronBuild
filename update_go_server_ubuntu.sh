@@ -165,6 +165,13 @@ if [ -n "${BUILD_USER}" ]; then
         log_message "Debug: First approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
         old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
         old_commit_status=$?
+        
+        # If sudo still fails, try direct execution as a last resort
+        if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+            log_message "Debug: Both sudo approaches failed, trying direct execution: ${GIT_CMD} rev-parse HEAD"
+            old_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
+            old_commit_status=$?
+        fi
     fi
     log_message "Debug: Command exit status: ${old_commit_status}"
     log_message "Debug: Command output: ${old_commit_output}"
@@ -180,6 +187,13 @@ if [ -n "${BUILD_USER}" ]; then
                 log_message "Debug: First approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
                 old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
                 old_commit_status=$?
+                
+                # If sudo still fails, try direct execution as a last resort
+                if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"a password is required"* ]]; then
+                    log_message "Debug: Both sudo approaches failed, trying direct execution: ${GIT_CMD} rev-parse HEAD"
+                    old_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
+                    old_commit_status=$?
+                fi
             fi
         fi
     fi
@@ -220,6 +234,13 @@ if [ -n "${BUILD_USER}" ]; then
         log_message "Debug: First git pull approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
         git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
         git_pull_status=$?
+        
+        # If sudo still fails, try direct execution as a last resort
+        if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
+            log_message "Debug: Both sudo approaches failed, trying direct execution: ${GIT_CMD} pull"
+            git_pull_output=$(${GIT_CMD} pull 2>&1)
+            git_pull_status=$?
+        fi
     fi
     
     # Handle dubious ownership error if it occurs
@@ -233,6 +254,13 @@ if [ -n "${BUILD_USER}" ]; then
                 log_message "Debug: First git pull retry approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull"
                 git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} pull 2>&1)
                 git_pull_status=$?
+                
+                # If sudo still fails, try direct execution as a last resort
+                if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"a password is required"* ]]; then
+                    log_message "Debug: Both sudo approaches failed, trying direct execution: ${GIT_CMD} pull"
+                    git_pull_output=$(${GIT_CMD} pull 2>&1)
+                    git_pull_status=$?
+                fi
             fi
         fi
     fi
@@ -274,6 +302,13 @@ if [ -n "${BUILD_USER}" ]; then
         log_message "Debug: First new commit hash approach failed, trying approach 2: ${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD"
         new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} -- ${GIT_CMD} rev-parse HEAD 2>&1)
         new_commit_status=$?
+        
+        # If sudo still fails, try direct execution as a last resort
+        if [ ${new_commit_status} -ne 0 ] && [[ "${new_commit_output}" == *"a password is required"* ]]; then
+            log_message "Debug: Both sudo approaches failed, trying direct execution: ${GIT_CMD} rev-parse HEAD"
+            new_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
+            new_commit_status=$?
+        fi
     fi
 else
     new_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
