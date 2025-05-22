@@ -137,6 +137,10 @@ if [ -n "${BUILD_USER}" ]; then
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GIT_CMD} rev-parse HEAD"
     add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: ${GO_CMD} build -o * ."
     add_line ""
+    add_line "# Allow creating Go cache directories as ${BUILD_USER}"
+    add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: /bin/mkdir -p ${PROJECT_DIR}/.gocache"
+    add_line "${CRON_USER} ALL=(${BUILD_USER}) NOPASSWD: /bin/mkdir -p ${PROJECT_DIR}/.gomodcache"
+    add_line ""
 fi
 
 # Note: We've removed the duplicate entries without NOPASSWD to avoid confusion
