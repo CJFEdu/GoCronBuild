@@ -139,45 +139,8 @@ if [ -n "${BUILD_USER}" ]; then
     add_line ""
 fi
 
-# Add entries for manual execution
-add_line "# === Alternative entries for manual execution ==="
-add_line "# These entries allow you to run the commands with a password prompt"
-add_line "# Useful for testing or one-off manual execution"
-add_line ""
-
-# Service restart permission
-add_line "# Allow restarting the service"
-add_line "${CRON_USER} ALL=(root) ${RC_SERVICE_CMD} ${RC_SERVICE_NAME} restart"
-add_line ""
-
-# File operations permissions
-add_line "# Allow moving the executable to backup"
-add_line "${CRON_USER} ALL=(root) /usr/bin/mv ${GO_EXECUTABLE_DEST} ${GO_EXECUTABLE_DEST}.bak_*"
-add_line ""
-
-add_line "# Allow moving the new executable into place"
-add_line "${CRON_USER} ALL=(root) /usr/bin/mv ${GO_EXECUTABLE_DEST}.tmp.* ${GO_EXECUTABLE_DEST}"
-add_line ""
-
-add_line "# Allow deleting backup executables"
-add_line "${CRON_USER} ALL=(root) /usr/bin/rm ${GO_EXECUTABLE_DEST}.bak_*"
-add_line ""
-
-# Add permissions for log directory (with password)
-add_line "# Allow creating and writing to log directory"
-add_line "${CRON_USER} ALL=(root) /bin/mkdir -p ${LOG_DIR}"
-add_line "${CRON_USER} ALL=(root) /bin/chmod -R 755 ${LOG_DIR}"
-add_line "${CRON_USER} ALL=(root) /bin/chown -R ${CRON_USER}\:${CRON_USER} ${LOG_DIR}"
-add_line ""
-
-# If BUILD_USER is set, add permissions for it
-if [ -n "${BUILD_USER}" ]; then
-    add_line "# Allow running git and go commands as ${BUILD_USER}"
-    add_line "${CRON_USER} ALL=(${BUILD_USER}) ${GIT_CMD} pull"
-    add_line "${CRON_USER} ALL=(${BUILD_USER}) ${GIT_CMD} rev-parse HEAD"
-    add_line "${CRON_USER} ALL=(${BUILD_USER}) ${GO_CMD} build -o * ."
-    add_line ""
-fi
+# Note: We've removed the duplicate entries without NOPASSWD to avoid confusion
+# All entries now use NOPASSWD to ensure they work properly with cron jobs
 
 add_line "# === Installation Instructions ==="
 add_line "# IMPORTANT: Always use 'visudo' to edit sudoers files to avoid syntax errors"

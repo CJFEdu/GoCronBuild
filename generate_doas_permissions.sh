@@ -140,45 +140,8 @@ if [ -n "${BUILD_USER}" ]; then
     add_line ""
 fi
 
-# Add entries for manual execution
-add_line "# === Alternative entries for manual execution ==="
-add_line "# These entries allow you to run the commands with a password prompt"
-add_line "# Useful for testing or one-off manual execution"
-add_line ""
-
-# Service restart permission
-add_line "# Allow restarting the service"
-add_line "permit ${CRON_USER} as root cmd ${RC_SERVICE_CMD} args ${RC_SERVICE_NAME} restart"
-add_line ""
-
-# File operations permissions
-add_line "# Allow moving the executable to backup"
-add_line "permit ${CRON_USER} as root cmd /usr/bin/mv args ${GO_EXECUTABLE_DEST} ${GO_EXECUTABLE_DEST}.bak_*"
-add_line ""
-
-add_line "# Allow moving the new executable into place"
-add_line "permit ${CRON_USER} as root cmd /usr/bin/mv args ${GO_EXECUTABLE_DEST}.tmp.* ${GO_EXECUTABLE_DEST}"
-add_line ""
-
-add_line "# Allow deleting backup executables"
-add_line "permit ${CRON_USER} as root cmd /usr/bin/rm args ${GO_EXECUTABLE_DEST}.bak_*"
-add_line ""
-
-# Add permissions for log directory (with password)
-add_line "# Allow creating and writing to log directory"
-add_line "permit ${CRON_USER} as root cmd /bin/mkdir args -p ${LOG_DIR}"
-add_line "permit ${CRON_USER} as root cmd /bin/chmod args -R 755 ${LOG_DIR}"
-add_line "permit ${CRON_USER} as root cmd /bin/chown args -R \$USER_GROUP_STRING ${LOG_DIR}"
-add_line ""
-
-# If BUILD_USER is set, add permissions for it
-if [ -n "${BUILD_USER}" ]; then
-    add_line "# Allow running git and go commands as ${BUILD_USER}"
-    add_line "permit ${CRON_USER} as ${BUILD_USER} cmd ${GIT_CMD} args pull"
-    add_line "permit ${CRON_USER} as ${BUILD_USER} cmd ${GIT_CMD} args rev-parse HEAD"
-    add_line "permit ${CRON_USER} as ${BUILD_USER} cmd ${GO_CMD} args build -o * ."
-    add_line ""
-fi
+# Note: We've removed the duplicate entries without nopass to avoid confusion
+# All entries now use nopass to ensure they work properly with cron jobs
 
 add_line "# === Installation Instructions ==="
 add_line "# Copy the appropriate entries above to /etc/doas.conf"
