@@ -195,7 +195,7 @@ attempt_direct_pull() {
 
 if [ -n "${BUILD_USER}" ]; then
     # Try with doas first
-    git_pull_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
+    git_pull_output=$(${DOAS_CMD} -n -u ${BUILD_USER} ${GIT_CMD} pull 2>&1)
     git_pull_status=$?
     
     # If doas fails with authentication error and this is likely a public repo, try direct pull
@@ -326,7 +326,7 @@ if [ -n "${BUILD_USER}" ]; then
     }
     
     # Try to create cache dirs as BUILD_USER
-    mkdir_gocache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOCACHE_DIR}" 2>&1)
+    mkdir_gocache_output=$(${DOAS_CMD} -n -u ${BUILD_USER} mkdir -p "${GOCACHE_DIR}" 2>&1)
     mkdir_gocache_status=$?
     if [ ${mkdir_gocache_status} -ne 0 ]; then
         if [[ "${mkdir_gocache_output}" == *"doas: Authentication required"* ]]; then
@@ -338,7 +338,7 @@ if [ -n "${BUILD_USER}" ]; then
         fi
     fi
     
-    mkdir_gomodcache_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" mkdir -p "${GOMODCACHE_DIR}" 2>&1)
+    mkdir_gomodcache_output=$(${DOAS_CMD} -n -u ${BUILD_USER} mkdir -p "${GOMODCACHE_DIR}" 2>&1)
     mkdir_gomodcache_status=$?
     if [ ${mkdir_gomodcache_status} -ne 0 ]; then
         if [[ "${mkdir_gomodcache_output}" == *"doas: Authentication required"* ]]; then
@@ -351,7 +351,7 @@ if [ -n "${BUILD_USER}" ]; then
 
     log_message "Executing go build with GOCACHE=${GOCACHE_DIR} GOMODCACHE=${GOMODCACHE_DIR}"
     # Try with doas first
-    build_output=$(${DOAS_CMD} -n -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    build_output=$(${DOAS_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
     
     # If doas fails with authentication error, try direct build

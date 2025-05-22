@@ -132,7 +132,7 @@ handle_dubious_ownership() {
         # Add the repository to safe.directory
         if [ -n "${BUILD_USER}" ]; then
             log_message "Adding repository to safe.directory for user ${BUILD_USER}..."
-            ${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} config --global --add safe.directory "$repo_path"
+            ${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} config --global --add safe.directory "$repo_path"
         else
             log_message "Adding repository to safe.directory..."
             ${GIT_CMD} config --global --add safe.directory "$repo_path"
@@ -155,8 +155,8 @@ attempt_direct_pull() {
 if [ -n "${BUILD_USER}" ]; then
     log_message "Getting current commit hash as user: ${BUILD_USER}"
     log_message "Debug: SUDO_CMD=${SUDO_CMD}, BUILD_USER=${BUILD_USER}, GIT_CMD=${GIT_CMD}"
-    log_message "Debug: Full command: ${SUDO_CMD} -n -u \"${BUILD_USER}\" ${GIT_CMD} rev-parse HEAD"
-    old_commit_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} rev-parse HEAD 2>&1)
+    log_message "Debug: Full command: ${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD"
+    old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     old_commit_status=$?
     log_message "Debug: Command exit status: ${old_commit_status}"
     log_message "Debug: Command output: ${old_commit_output}"
@@ -165,7 +165,7 @@ if [ -n "${BUILD_USER}" ]; then
     if [ ${old_commit_status} -ne 0 ] && [[ "${old_commit_output}" == *"dubious ownership"* ]]; then
         if handle_dubious_ownership "${old_commit_output}"; then
             log_message "Retrying git rev-parse after fixing dubious ownership..."
-            old_commit_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} rev-parse HEAD 2>&1)
+            old_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
             old_commit_status=$?
         fi
     fi
@@ -206,7 +206,7 @@ if [ -n "${BUILD_USER}" ]; then
     if [ ${git_pull_status} -ne 0 ] && [[ "${git_pull_output}" == *"dubious ownership"* ]]; then
         if handle_dubious_ownership "${git_pull_output}"; then
             log_message "Retrying git pull after fixing dubious ownership..."
-            git_pull_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} pull 2>&1)
+            git_pull_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} pull 2>&1)
             git_pull_status=$?
         fi
     fi
@@ -241,7 +241,7 @@ log_message "Git pull output: ${git_pull_output}"
 
 # Get the new commit hash after pull
 if [ -n "${BUILD_USER}" ]; then
-    new_commit_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" ${GIT_CMD} rev-parse HEAD 2>&1)
+    new_commit_output=$(${SUDO_CMD} -n -u ${BUILD_USER} ${GIT_CMD} rev-parse HEAD 2>&1)
     new_commit_status=$?
 else
     new_commit_output=$(${GIT_CMD} rev-parse HEAD 2>&1)
@@ -335,7 +335,7 @@ if [ -n "${BUILD_USER}" ]; then
     
     # Try with sudo first
     log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
-    build_output=$(${SUDO_CMD} -n -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+    build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
     
     # If sudo fails with authentication error, try direct build
