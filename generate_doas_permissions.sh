@@ -45,6 +45,7 @@ CURRENT_USER=$(whoami)
 if [ -z "${CRON_USER}" ]; then
     CRON_USER="${CURRENT_USER}"
     echo "No cron user specified, using current user: ${CURRENT_USER}"
+fi
 
 # Create the output file
 OUTPUT_FILE="${SCRIPT_DIR}/doas.txt"
