@@ -299,19 +299,8 @@ if [ -n "${BUILD_USER}" ]; then
     mkdir_gomodcache_output=$(${SUDO_CMD} -n -u ${BUILD_USER} mkdir -p "${GOMODCACHE_DIR}" 2>&1)
     mkdir_gomodcache_status=$?
     
-    # Create SNAP_USER_DATA directory for snap packages
-    SNAP_USER_DATA_DIR="${PROJECT_DIR}/.snapuserdata"
-    log_message "Setting up SNAP_USER_DATA directory: ${SNAP_USER_DATA_DIR}"
-    mkdir_snap_output=$(${SUDO_CMD} -n -u ${BUILD_USER} mkdir -p "${SNAP_USER_DATA_DIR}" 2>&1)
-    mkdir_snap_status=$?
-    
     if [ ${mkdir_gomodcache_status} -ne 0 ]; then
         log_message "ERROR: Failed to create GOMODCACHE directory. Output: ${mkdir_gomodcache_output}"
-        exit 1
-    fi
-    
-    if [ ${mkdir_snap_status} -ne 0 ]; then
-        log_message "ERROR: Failed to create SNAP_USER_DATA directory. Output: ${mkdir_snap_output}"
         exit 1
     fi
     
@@ -321,8 +310,8 @@ if [ -n "${BUILD_USER}" ]; then
     log_message "Set GOCACHE=${GOCACHE} and GOMODCACHE=${GOMODCACHE}"
     
     # Build with sudo as BUILD_USER
-    log_message "Building as user: ${BUILD_USER} with custom Go cache and snap directories"
-    build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" SNAP_USER_DATA="${SNAP_USER_DATA_DIR}" ${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
+    log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
+    build_output=$(${SUDO_CMD} -n -u ${BUILD_USER} env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -buildvcs=false -o "${PROJECT_DIR}/${GO_EXECUTABLE_NAME}.tmp" . 2>&1)
     build_status=$?
 else
     # Direct build if no BUILD_USER

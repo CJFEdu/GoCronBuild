@@ -214,31 +214,23 @@ if [ -n "${BUILD_USER}" ]; then
         exit 1
     }
     
-    # Create SNAP_USER_DATA directory for snap packages
-    SNAP_USER_DATA_DIR="${PROJECT_DIR}/.snapuserdata"
-    log_message "Setting up SNAP_USER_DATA directory: ${SNAP_USER_DATA_DIR}"
-    mkdir -p "${SNAP_USER_DATA_DIR}" || {
-        log_message "ERROR: Failed to create SNAP_USER_DATA directory."
-        exit 1
-    }
-    
     # Set proper ownership
-    ${SUDO_CMD} chown -R "${BUILD_USER}:${BUILD_USER}" "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" "${SNAP_USER_DATA_DIR}" || {
-        log_message "ERROR: Failed to set ownership on Go cache and snap directories."
+    ${SUDO_CMD} chown -R "${BUILD_USER}:${BUILD_USER}" "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set ownership on Go cache directories."
         exit 1
     }
     
     # Set proper permissions
-    ${SUDO_CMD} chmod -R 755 "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" "${SNAP_USER_DATA_DIR}" || {
-        log_message "ERROR: Failed to set permissions on Go cache and snap directories."
+    ${SUDO_CMD} chmod -R 755 "${GOCACHE_DIR}" "${GOMODCACHE_DIR}" || {
+        log_message "ERROR: Failed to set permissions on Go cache directories."
         exit 1
     }
     
     log_message "Go cache directories set up successfully."
     
-    # Build the Go application with custom cache and snap directories
-    log_message "Building as user: ${BUILD_USER} with custom Go cache and snap directories"
-    build_output=$(${SUDO_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" SNAP_USER_DATA="${SNAP_USER_DATA_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
+    # Build the Go application with custom cache directories
+    log_message "Building as user: ${BUILD_USER} with custom Go cache directories"
+    build_output=$(${SUDO_CMD} -u "${BUILD_USER}" env GOCACHE="${GOCACHE_DIR}" GOMODCACHE="${GOMODCACHE_DIR}" ${GO_CMD} build -o "${TMP_BUILD_FILE}" . 2>&1)
     build_status=$?
 else
     # Build the Go application normally
